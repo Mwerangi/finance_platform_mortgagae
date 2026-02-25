@@ -1,0 +1,166 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+
+// Guest Routes
+Route::middleware('guest')->group(function () {
+    Route::get('/', function () {
+        return Inertia::render('Auth/Login');
+    })->name('login');
+    
+    Route::get('/login', function () {
+        return Inertia::render('Auth/Login');
+    });
+    
+    Route::post('/login', function (Request $request) {
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            $request->session()->regenerate();
+            
+            return redirect()->intended('/dashboard');
+        }
+
+        throw ValidationException::withMessages([
+            'email' => 'The provided credentials do not match our records.',
+        ]);
+    });
+});
+
+// Authenticated Routes
+Route::middleware(['auth'])->group(function () {
+    // Dashboard
+    Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'executive'])
+        ->name('dashboard');
+    
+    // User Management
+    Route::resource('users', \App\Http\Controllers\Web\UserController::class);
+    Route::put('/users/{user}/status', [\App\Http\Controllers\Web\UserController::class, 'updateStatus'])
+        ->name('users.status');
+    Route::post('/users/{user}/password-reset', [\App\Http\Controllers\Web\UserController::class, 'sendPasswordReset'])
+        ->name('users.password-reset');
+    
+    // Loan Products
+    Route::resource('loan-products', \App\Http\Controllers\Web\LoanProductController::class);
+    Route::put('/loan-products/{loanProduct}/status', [\App\Http\Controllers\Web\LoanProductController::class, 'updateStatus'])
+        ->name('loan-products.status');
+    Route::put('/loan-products/{loanProduct}/activate', [\App\Http\Controllers\Web\LoanProductController::class, 'activate'])
+        ->name('loan-products.activate');
+    Route::put('/loan-products/{loanProduct}/deactivate', [\App\Http\Controllers\Web\LoanProductController::class, 'deactivate'])
+        ->name('loan-products.deactivate');
+    
+    // Customers
+    Route::resource('customers', \App\Http\Controllers\Web\CustomerController::class);
+    Route::put('/customers/{customer}/status', [\App\Http\Controllers\Web\CustomerController::class, 'updateStatus'])
+        ->name('customers.status');
+    Route::post('/customers/{customer}/verify-kyc', [\App\Http\Controllers\Web\CustomerController::class, 'verifyKyc'])
+        ->name('customers.verify-kyc');
+    
+    // KYC Documents for customers (web routes)
+    Route::post('/customers/{customer}/kyc-documents', [\App\Http\Controllers\KycDocumentController::class, 'store'])
+        ->name('customers.kyc-documents.store');
+    Route::delete('/kyc-documents/{kycDocument}', [\App\Http\Controllers\KycDocumentController::class, 'destroy'])
+        ->name('kyc-documents.destroy');
+    Route::get('/kyc-documents/{kycDocument}/download', [\App\Http\Controllers\KycDocumentController::class, 'download'])
+        ->name('kyc-documents.download');
+    
+    // Applications
+    Route::resource('applications', \App\Http\Controllers\ApplicationController::class);
+    Route::post('/applications/{application}/start-review', [\App\Http\Controllers\ApplicationController::class, 'startReview'])
+        ->name('applications.start-review');
+    Route::post('/applications/{application}/approve', [\App\Http\Controllers\ApplicationController::class, 'approve'])
+        ->name('applications.approve');
+    Route::post('/applications/{application}/reject', [\App\Http\Controllers\ApplicationController::class, 'reject'])
+        ->name('applications.reject');
+    
+    // Loans
+    Route::get('/loans', [\App\Http\Controllers\Web\LoanController::class, 'index'])
+        ->name('loans.index');
+    Route::get('/loans/{loan}', [\App\Http\Controllers\Web\LoanController::class, 'show'])
+        ->name('loans.show');
+    Route::get('/applications/{application}/disburse', [\App\Http\Controllers\Web\LoanController::class, 'showDisbursement'])
+        ->name('loans.show-disbursement');
+    Route::post('/applications/{application}/disburse', [\App\Http\Controllers\Web\LoanController::class, 'disburse'])
+        ->name('loans.disburse');
+    Route::post('/loans/{loan}/activate', [\App\Http\Controllers\Web\LoanController::class, 'activate'])
+        ->name('loans.activate');
+    Route::post('/loans/{loan}/write-off', [\App\Http\Controllers\Web\LoanController::class, 'writeOff'])
+        ->name('loans.write-off');
+    Route::post('/loans/{loan}/mark-defaulted', [\App\Http\Controllers\Web\LoanController::class, 'markAsDefaulted'])
+        ->name('loans.mark-defaulted');
+    Route::post('/loans/{loan}/close', [\App\Http\Controllers\Web\LoanController::class, 'close'])
+        ->name('loans.close');
+    
+    // Collections
+    Route::get('/collections', function () {
+        return Inertia::render('Collections/Index');
+    })->name('collections.index');
+    
+    // Reports
+    Route::get('/reports/portfolio', function () {
+        return Inertia::render('Reports/Portfolio');
+    })->name('reports.portfolio');
+    
+    Route::get('/reports/analytics', function () {
+        return Inertia::render('Reports/Analytics');
+    })->name('reports.analytics');
+    
+    Route::get('/reports/exports', function () {
+        return Inertia::render('Reports/Exports');
+    })->name('reports.exports');
+    
+    // Profile & Settings
+    Route::get('/profile', function () {
+        return Inertia::render('Profile/Edit');
+    })->name('profile.edit');
+    
+    Route::get('/settings', function () {
+        return Inertia::render('Settings/Index');
+    })->name('settings.index');
+    
+    // Pre-Qualification (Prospects)
+    Route::get('/pre-qualify', [\App\Http\Controllers\Web\ProspectController::class, 'start'])
+        ->name('pre-qualify.start');
+    Route::post('/pre-qualify', [\App\Http\Controllers\Web\ProspectController::class, 'store'])
+        ->name('pre-qualify.store');
+    Route::get('/pre-qualify/{prospect}/statement', [\App\Http\Controllers\Web\ProspectController::class, 'statement'])
+        ->name('pre-qualify.statement');
+    Route::post('/pre-qualify/{prospect}/statement', [\App\Http\Controllers\Web\ProspectController::class, 'uploadStatement'])
+        ->name('pre-qualify.upload-statement');
+    Route::get('/pre-qualify/{prospect}/processing', [\App\Http\Controllers\Web\ProspectController::class, 'processing'])
+        ->name('pre-qualify.processing');
+    Route::get('/pre-qualify/{prospect}/status', [\App\Http\Controllers\Web\ProspectController::class, 'checkStatus'])
+        ->name('pre-qualify.check-status');
+    Route::post('/pre-qualify/{prospect}/retry-analytics', [\App\Http\Controllers\Web\ProspectController::class, 'retryAnalytics'])
+        ->name('pre-qualify.retry-analytics');
+    Route::get('/pre-qualify/{prospect}/results', [\App\Http\Controllers\Web\ProspectController::class, 'results'])
+        ->name('pre-qualify.results');
+    Route::post('/pre-qualify/{prospect}/amend-and-reassess', [\App\Http\Controllers\Web\ProspectController::class, 'amendAndReassess'])
+        ->name('pre-qualify.amend-and-reassess');
+    Route::post('/pre-qualify/{prospect}/override-decision', [\App\Http\Controllers\Web\ProspectController::class, 'overrideDecision'])
+        ->name('pre-qualify.override-decision');
+    Route::post('/pre-qualify/{prospect}/convert', [\App\Http\Controllers\Web\ProspectController::class, 'convertToCustomer'])
+        ->name('pre-qualify.convert');
+    
+    // Prospects Management
+    Route::get('/prospects', [\App\Http\Controllers\Web\ProspectController::class, 'index'])
+        ->name('prospects.index');
+    Route::get('/prospects/{prospect}', [\App\Http\Controllers\Web\ProspectController::class, 'show'])
+        ->name('prospects.show');
+    
+    // Logout
+    Route::post('/logout', function () {
+        auth()->logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+        return redirect('/');
+    })->name('logout');
+});
+
