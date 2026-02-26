@@ -429,9 +429,9 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
-import AppLayout from '@/Layouts/AppLayout.vue';
-import Card from '@/Components/Card.vue';
-import Badge from '@/Components/Badge.vue';
+import AppLayout from '@/Components/Layout/AppLayout.vue';
+import Card from '@/Components/UI/Card.vue';
+import Badge from '@/Components/UI/Badge.vue';
 
 const props = defineProps({
   decision: Object,

@@ -200,8 +200,30 @@
       </div>
 
       <!-- Pagination -->
-      <div v-if="decisions.data.length > 0" class="card-footer">
-        <Pagination :data="decisions" />
+      <div v-if="decisions.data.length > 0" class="d-flex justify-content-between align-items-center p-3 border-top">
+        <div class="text-muted small">
+          Showing {{ decisions.from }} to {{ decisions.to }} of {{ decisions.total }} decisions
+        </div>
+        <nav>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item" :class="{ disabled: !decisions.prev_page_url }">
+              <Link v-if="decisions.prev_page_url" :href="decisions.prev_page_url" class="page-link">Previous</Link>
+              <span v-else class="page-link">Previous</span>
+            </li>
+            <li
+              v-for="page in paginationPages"
+              :key="page"
+              class="page-item"
+              :class="{ active: page === decisions.current_page }"
+            >
+              <Link :href="`${decisions.path}?page=${page}`" class="page-link">{{ page }}</Link>
+            </li>
+            <li class="page-item" :class="{ disabled: !decisions.next_page_url }">
+              <Link v-if="decisions.next_page_url" :href="decisions.next_page_url" class="page-link">Next</Link>
+              <span v-else class="page-link">Next</span>
+            </li>
+          </ul>
+        </nav>
       </div>
     </Card>
 
@@ -252,10 +274,9 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { router, Link } from '@inertiajs/vue3';
-import AppLayout from '@/Layouts/AppLayout.vue';
-import Card from '@/Components/Card.vue';
-import Badge from '@/Components/Badge.vue';
-import Pagination from '@/Components/Pagination.vue';
+import AppLayout from '@/Components/Layout/AppLayout.vue';
+import Card from '@/Components/UI/Card.vue';
+import Badge from '@/Components/UI/Badge.vue';
 
 const props = defineProps({
   decisions: Object,
@@ -365,4 +386,17 @@ const formatDate = (date) => {
     year: 'numeric',
   });
 };
+
+const paginationPages = computed(() => {
+  const pages = [];
+  const current = props.decisions.current_page;
+  const last = props.decisions.last_page;
+  const delta = 2;
+
+  for (let i = Math.max(1, current - delta); i <= Math.min(last, current + delta); i++) {
+    pages.push(i);
+  }
+
+  return pages;
+});
 </script>
