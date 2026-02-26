@@ -45,13 +45,23 @@ const paymentForm = useForm({
     amount: '',
     payment_method: 'cash',
     reference_number: '',
-    notes: ''
+    notes: '',
+    installment_id: null
 });
+
+// Get all unpaid/partially paid installments for selection
+const getUnpaidInstallments = () => {
+    if (!props.loan.schedules) return [];
+    return props.loan.schedules.filter(schedule => 
+        ['pending', 'partially_paid', 'overdue'].includes(schedule.status)
+    );
+};
 
 // Auto-populate amount when modal opens
 const openPaymentModal = () => {
     if (props.nextInstallment) {
         paymentForm.amount = props.nextInstallment.balance_remaining;
+        paymentForm.installment_id = props.nextInstallment.id; // Default to next installment
     } else {
         // If no schedules, suggest a reasonable amount based on tenure
         // This helps users but doesn't enforce it
@@ -60,8 +70,21 @@ const openPaymentModal = () => {
         } else {
             paymentForm.amount = '';
         }
+        paymentForm.installment_id = null;
     }
     showPaymentModal.value = true;
+};
+
+// Update amount when installment selection changes
+const onInstallmentChange = () => {
+    if (paymentForm.installment_id) {
+        const selectedInstallment = props.loan.schedules.find(
+            schedule => schedule.id === parseInt(paymentForm.installment_id)
+        );
+        if (selectedInstallment) {
+            paymentForm.amount = selectedInstallment.balance_remaining;
+        }
+    }
 };
 
 const getStatusVariant = (status) => {
@@ -174,6 +197,7 @@ const submitPayment = () => {
             paymentForm.reset();
             paymentForm.payment_date = new Date().toISOString().split('T')[0];
             paymentForm.payment_method = 'cash';
+            paymentForm.installment_id = null;
         }
     });
 };
@@ -183,8 +207,9 @@ const getInstallmentStatusVariant = (status) => {
     const variants = {
         'pending': 'warning',
         'partially_paid': 'info',
-        'paid': 'success',
-        'overdue': 'danger'
+        'fully_paid': 'success',
+        'overdue': 'danger',
+        'waived': 'secondary'
     };
     return variants[status] || 'secondary';
 };
@@ -193,8 +218,9 @@ const formatInstallmentStatus = (status) => {
     const statuses = {
         'pending': 'Pending',
         'partially_paid': 'Partial',
-        'paid': 'Paid',
-        'overdue': 'Overdue'
+        'fully_paid': 'Paid',
+        'overdue': 'Overdue',
+        'waived': 'Waived'
     };
     return statuses[status] || status;
 };
@@ -514,7 +540,7 @@ const prevPage = () => {
                                 <div class="text-muted small">
                                     <span class="me-3">
                                         <i class="bi bi-check-circle text-success"></i>
-                                        {{ loan.schedules.filter(s => s.status === 'paid').length }} Paid
+                                        {{ loan.schedules.filter(s => s.status === 'fully_paid').length }} Paid
                                     </span>
                                     <span class="me-3">
                                         <i class="bi bi-clock text-warning"></i>
@@ -548,7 +574,7 @@ const prevPage = () => {
                                         v-for="installment in getPaginatedSchedules()" 
                                         :key="installment.id"
                                         :class="{
-                                            'table-success': installment.status === 'paid',
+                                            'table-success': installment.status === 'fully_paid',
                                             'table-warning': installment.status === 'partially_paid',
                                             'table-danger': installment.status === 'overdue'
                                         }"
@@ -1061,6 +1087,35 @@ const prevPage = () => {
                                         No installment schedule available. Payment will be allocated to interest first, then principal.
                                     </small>
                                 </div>
+                            </div>
+
+                            <div class="mb-3" v-if="getUnpaidInstallments().length > 0">
+                                <label class="form-label">Select Installment *</label>
+                                <select
+                                    v-model="paymentForm.installment_id"
+                                    class="form-select"
+                                    :class="{ 'is-invalid': paymentForm.errors.installment_id }"
+                                    @change="onInstallmentChange"
+                                >
+                                    <option :value="null" disabled>Choose installment to pay</option>
+                                    <option 
+                                        v-for="installment in getUnpaidInstallments()" 
+                                        :key="installment.id" 
+                                        :value="installment.id"
+                                    >
+                                        #{{ installment.installment_number }} - 
+                                        {{ formatDate(installment.due_date) }} - 
+                                        {{ formatCurrency(installment.balance_remaining) }}
+                                        <span v-if="installment.status === 'overdue'" class="text-danger"> (Overdue)</span>
+                                        <span v-else-if="installment.status === 'partially_paid'" class="text-info"> (Partial)</span>
+                                    </option>
+                                </select>
+                                <div v-if="paymentForm.errors.installment_id" class="invalid-feedback">
+                                    {{ paymentForm.errors.installment_id }}
+                                </div>
+                                <small class="text-muted">
+                                    Select which installment to pay. Amount will auto-populate with the installment balance.
+                                </small>
                             </div>
 
                             <div class="mb-3">

@@ -140,6 +140,14 @@ class Loan extends Model
     ];
 
     /**
+     * Append computed attributes to JSON serialization
+     */
+    protected $appends = [
+        'repayment_progress',
+        'outstanding_percentage',
+    ];
+
+    /**
      * Boot the model.
      */
     protected static function boot()

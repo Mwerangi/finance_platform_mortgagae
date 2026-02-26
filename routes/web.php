@@ -114,9 +114,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('loans.close');
     
     // Collections
-    Route::get('/collections', function () {
-        return Inertia::render('Collections/Index');
-    })->name('collections.index');
+    Route::get('/collections', [\App\Http\Controllers\Web\CollectionsController::class, 'index'])
+        ->name('collections.index');
+    Route::post('/collections/generate', [\App\Http\Controllers\Web\CollectionsController::class, 'generateQueue'])
+        ->name('collections.generate');
     
     // Reports
     Route::get('/reports/portfolio', function () {

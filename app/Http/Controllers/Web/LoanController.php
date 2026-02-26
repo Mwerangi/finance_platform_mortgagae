@@ -282,23 +282,37 @@ class LoanController extends Controller
      */
     public function addPayment(Request $request, Loan $loan)
     {
-        // Get next unpaid installment to validate minimum amount
-        $nextInstallment = $loan->schedules()
-            ->whereIn('status', ['pending', 'partially_paid'])
-            ->orderBy('due_date', 'asc')
-            ->first();
+        // Get selected installment or default to next unpaid installment
+        $selectedInstallmentId = $request->input('installment_id');
+        
+        if ($selectedInstallmentId) {
+            $targetInstallment = $loan->schedules()
+                ->where('id', $selectedInstallmentId)
+                ->whereIn('status', ['pending', 'partially_paid', 'overdue'])
+                ->first();
+                
+            if (!$targetInstallment) {
+                return back()->with('error', 'Selected installment not found or already paid');
+            }
+        } else {
+            $targetInstallment = $loan->schedules()
+                ->whereIn('status', ['pending', 'partially_paid', 'overdue'])
+                ->orderBy('due_date', 'asc')
+                ->first();
+        }
 
-        $minAmount = $nextInstallment ? $nextInstallment->balance_remaining : 0.01;
+        $minAmount = $targetInstallment ? $targetInstallment->balance_remaining : 0.01;
 
         $validated = $request->validate([
             'payment_date' => 'required|date',
             'amount' => ['required', 'numeric', 'min:' . $minAmount],
             'payment_method' => 'required|in:cash,bank_transfer,mobile_money,cheque,standing_order',
             'reference_number' => 'nullable|string|max:100',
-            'notes' => 'nullable|string|max:1000'
+            'notes' => 'nullable|string|max:1000',
+            'installment_id' => 'nullable|exists:loan_schedules,id'
         ], [
-            'amount.min' => $nextInstallment 
-                ? 'Payment amount must be at least ' . number_format($minAmount, 2) . ' (next installment balance)'
+            'amount.min' => $targetInstallment 
+                ? 'Payment amount must be at least ' . number_format($minAmount, 2) . ' (installment balance)'
                 : 'Payment amount must be greater than 0'
         ]);
 
@@ -322,13 +336,14 @@ class LoanController extends Controller
         ]);
 
         // Allocate payment to loan (principal, interest, etc.)
-        $this->allocatePayment($repayment, $loan);
+        $this->allocatePayment($repayment, $loan, $targetInstallment);
 
-        // Update loan outstanding amounts
+        // Update loan outstanding amounts and total paid
         $loan->update([
             'principal_outstanding' => max(0, $loan->principal_outstanding - $repayment->principal_amount),
             'interest_outstanding' => max(0, $loan->interest_outstanding - $repayment->interest_amount),
             'total_outstanding' => max(0, $loan->total_outstanding - $repayment->amount),
+            'total_paid' => $loan->total_paid + $repayment->amount,
         ]);
 
         // Check if loan is fully paid
@@ -341,8 +356,12 @@ class LoanController extends Controller
 
     /**
      * Allocate payment to installments (principal and interest)
+     * 
+     * @param \App\Models\Repayment $repayment
+     * @param Loan $loan
+     * @param \App\Models\LoanSchedule|null $startFromInstallment Optional installment to start allocation from
      */
-    protected function allocatePayment(\App\Models\Repayment $repayment, Loan $loan)
+    protected function allocatePayment(\App\Models\Repayment $repayment, Loan $loan, $startFromInstallment = null)
     {
         $remainingAmount = $repayment->amount;
         $totalPrincipal = 0;
@@ -351,10 +370,15 @@ class LoanController extends Controller
         $totalFees = 0;
         
         // Get all unpaid/partially paid installments in order
-        $installments = $loan->schedules()
-            ->whereIn('status', ['pending', 'partially_paid', 'overdue'])
-            ->orderBy('due_date', 'asc')
-            ->get();
+        $query = $loan->schedules()
+            ->whereIn('status', ['pending', 'partially_paid', 'overdue']);
+        
+        // If a specific installment is selected, start from that installment
+        if ($startFromInstallment) {
+            $query->where('installment_number', '>=', $startFromInstallment->installment_number);
+        }
+        
+        $installments = $query->orderBy('installment_number', 'asc')->get();
         
         // If no schedules exist, use simple allocation based on loan outstanding amounts
         if ($installments->isEmpty()) {
@@ -418,7 +442,7 @@ class LoanController extends Controller
             // Determine new status
             $newStatus = $installment->status;
             if ($newBalance <= 0) {
-                $newStatus = 'paid';
+                $newStatus = 'fully_paid';
             } elseif ($newTotalPaid > 0) {
                 $newStatus = 'partially_paid';
             }
