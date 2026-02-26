@@ -88,6 +88,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/applications/{application}/reject', [\App\Http\Controllers\ApplicationController::class, 'reject'])
         ->name('applications.reject')
         ->where('application', '[0-9]+');
+    Route::post('/applications/{application}/upload-statement', [\App\Http\Controllers\ApplicationController::class, 'uploadStatement'])
+        ->name('applications.upload-statement')
+        ->where('application', '[0-9]+');
     
     // Resource routes with constraint to only match numeric IDs
     Route::resource('applications', \App\Http\Controllers\ApplicationController::class)

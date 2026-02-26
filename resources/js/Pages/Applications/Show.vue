@@ -261,6 +261,45 @@
                 <div class="fw-bold">{{ formatCurrency(latestUnderwriting.recommended_amount) }}</div>
               </div>
             </Card>
+
+            <!-- Bank Statement -->
+            <Card header="Bank Statement" class="mb-4">
+              <!-- Display uploaded statements -->
+              <div v-if="bankStatementImports && bankStatementImports.length > 0" class="mb-3">
+                <div 
+                  v-for="statement in bankStatementImports" 
+                  :key="statement.id"
+                  class="border rounded p-3 mb-2"
+                >
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                      <div class="fw-bold">{{ statement.file_name }}</div>
+                      <small class="text-muted">{{ statement.bank_name || 'Bank statement' }}</small>
+                    </div>
+                    <Badge :variant="getStatementStatusVariant(statement.import_status)">
+                      {{ formatStatementStatus(statement.import_status) }}
+                    </Badge>
+                  </div>
+                  <div class="small text-muted">
+                    <div>Uploaded: {{ formatDateTime(statement.created_at) }}</div>
+                    <div v-if="statement.statement_start_date && statement.statement_end_date">
+                      Period: {{ formatDate(statement.statement_start_date) }} - {{ formatDate(statement.statement_end_date) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Upload new statement -->
+              <div v-if="!application.status !== 'closed' && !application.status !== 'rejected'">
+                <button 
+                  class="btn btn-sm btn-outline-primary w-100" 
+                  @click="showUploadModal = true"
+                >
+                  <i class="bi bi-upload me-1"></i>
+                  {{ bankStatementImports && bankStatementImports.length > 0 ? 'Upload Another Statement' : 'Upload Bank Statement' }}
+                </button>
+              </div>
+            </Card>
           </div>
         </div>
 
@@ -610,6 +649,80 @@
         </div>
       </div>
     </div>
+
+    <!-- Bank Statement Upload Modal -->
+    <div v-if="showUploadModal" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Upload Bank Statement</h5>
+            <button type="button" class="btn-close" @click="closeUploadModal"></button>
+          </div>
+          <form @submit.prevent="submitBankStatement">
+            <div class="modal-body">
+              <div class="alert alert-info mb-3">
+                <i class="bi bi-info-circle me-2"></i>
+                Upload bank statement in Excel (.xlsx, .xls) or CSV format
+              </div>
+
+              <div class="mb-3">
+                <label for="bank_name" class="form-label">Bank Name</label>
+                <input
+                  id="bank_name"
+                  v-model="uploadForm.bank_name"
+                  type="text"
+                  class="form-control"
+                  placeholder="e.g., CRDB Bank, NMB Bank"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label for="account_number" class="form-label">Account Number</label>
+                <input
+                  id="account_number"
+                  v-model="uploadForm.account_number"
+                  type="text"
+                  class="form-control"
+                />
+              </div>
+
+              <div class="mb-3">
+                <label for="file" class="form-label">Bank Statement File <span class="text-danger">*</span></label>
+                <input
+                  id="file"
+                  ref="fileInput"
+                  type="file"
+                  class="form-control"
+                  accept=".xlsx,.xls,.csv"
+                  @change="handleFileChange"
+                  required
+                />
+                <small class="text-muted">Max file size: 10MB</small>
+              </div>
+
+              <div v-if="selectedFile" class="alert alert-success">
+                <i class="bi bi-file-earmark-spreadsheet me-2"></i>
+                Selected: {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" @click="closeUploadModal" :disabled="uploading">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                :disabled="uploading || !selectedFile"
+              >
+                <span v-if="uploading" class="spinner-border spinner-border-sm me-1"></span>
+                <i v-else class="bi bi-upload me-1"></i>
+                {{ uploading ? 'Uploading...' : 'Upload' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -624,15 +737,25 @@ const props = defineProps({
   application: Object,
   latestUnderwriting: Object,
   latestEligibility: Object,
-  canApprove: Boolean
+  canApprove: Boolean,
+  bankStatementImports: Array
 });
 
 const showApproveModal = ref(false);
 const showRejectModal = ref(false);
+const showUploadModal = ref(false);
 const approving = ref(false);
 const rejecting = ref(false);
+const uploading = ref(false);
 const rejectForm = ref({ notes: '' });
 const rejectErrors = ref({});
+const selectedFile = ref(null);
+const fileInput = ref(null);
+const uploadForm = ref({
+  bank_name: '',
+  account_number: '',
+  file: null
+});
 
 const getInitials = (customer) => {
   const first = customer.first_name?.[0] || '';
@@ -848,6 +971,82 @@ const confirmReject = () => {
       rejectForm.value.notes = '';
     }
   });
+};
+
+const closeUploadModal = () => {
+  showUploadModal.value = false;
+  selectedFile.value = null;
+  uploadForm.value = {
+    bank_name: '',
+    account_number: '',
+    file: null
+  };
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+};
+
+const handleFileChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    selectedFile.value = file;
+    uploadForm.value.file = file;
+  }
+};
+
+const submitBankStatement = () => {
+  if (!selectedFile.value) {
+    alert('Please select a file to upload');
+    return;
+  }
+
+  uploading.value = true;
+
+  const formData = new FormData();
+  formData.append('file', selectedFile.value);
+  formData.append('bank_name', uploadForm.value.bank_name);
+  formData.append('account_number', uploadForm.value.account_number);
+
+  router.post(`/applications/${props.application.id}/upload-statement`, formData, {
+    onSuccess: () => {
+      closeUploadModal();
+    },
+    onError: (errors) => {
+      alert('Error uploading file: ' + (errors.file || 'Unknown error'));
+    },
+    onFinish: () => {
+      uploading.value = false;
+    },
+    forceFormData: true,
+  });
+};
+
+const formatStatementStatus = (status) => {
+  const statusMap = {
+    'pending': 'Pending',
+    'processing': 'Processing',
+    'completed': 'Completed',
+    'failed': 'Failed'
+  };
+  return statusMap[status] || status;
+};
+
+const getStatementStatusVariant = (status) => {
+  const variantMap = {
+    'pending': 'secondary',
+    'processing': 'warning',
+    'completed': 'success',
+    'failed': 'danger'
+  };
+  return variantMap[status] || 'secondary';
+};
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 };
 </script>
 

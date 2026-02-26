@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ParseBankStatementJob;
 use App\Models\Application;
+use App\Models\BankStatementImport;
 use App\Models\Customer;
 use App\Models\LoanProduct;
 use App\Enums\ApplicationStatus;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ApplicationController extends Controller
@@ -146,6 +150,10 @@ class ApplicationController extends Controller
             'approver',
             'latestUnderwritingDecision',
             'latestLoan',
+            'bankStatementImports' => function($query) {
+                $query->latest();
+            },
+            'bankStatementImport',
             'eligibilityAssessments' => function($query) {
                 $query->latest()->with(['assessor', 'statementAnalytics']);
             }
@@ -166,7 +174,8 @@ class ApplicationController extends Controller
             'application' => $application,
             'latestUnderwriting' => $application->latestUnderwritingDecision,
             'latestEligibility' => $latestEligibility,
-            'canApprove' => $canApprove
+            'canApprove' => $canApprove,
+            'bankStatementImports' => $application->bankStatementImports,
         ]);
     }
 
@@ -260,6 +269,66 @@ class ApplicationController extends Controller
 
         return redirect()->route('applications.index')
             ->with('success', 'Application deleted successfully');
+    }
+
+    /**
+     * Upload bank statement for an application
+     */
+    public function uploadStatement(Request $request, Application $application)
+    {
+        // Ensure user can access this application
+        if ($application->institution_id !== auth()->user()->institution_id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240', // 10MB max
+            'bank_name' => 'nullable|string|max:255',
+            'account_number' => 'nullable|string|max:50',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Store the uploaded file
+            $file = $request->file('file');
+            $path = $file->store('bank-statements', 'private');
+
+            // Create bank statement import record
+            $statementImport = BankStatementImport::create([
+                'institution_id' => $application->institution_id,
+                'customer_id' => $application->customer_id,
+                'application_id' => $application->id,
+                'uploaded_by' => auth()->id(),
+                'file_path' => $path,
+                'file_name' => $file->getClientOriginalName(),
+                'file_type' => $file->getClientOriginalExtension(),
+                'file_size' => $file->getSize(),
+                'bank_name' => $validated['bank_name'] ?? null,
+                'account_number' => $validated['account_number'] ?? null,
+                'import_status' => 'pending',
+            ]);
+
+            // Link this import to the application
+            $application->update([
+                'bank_statement_import_id' => $statementImport->id,
+            ]);
+
+            // Dispatch job to parse the bank statement
+            ParseBankStatementJob::dispatch($statementImport);
+
+            DB::commit();
+
+            return back()->with('success', 'Bank statement uploaded successfully and is being processed');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to upload bank statement: ' . $e->getMessage());
+            
+            return back()->withErrors([
+                'file' => 'Failed to upload bank statement: ' . $e->getMessage()
+            ])->withInput();
+        }
     }
 
     /**

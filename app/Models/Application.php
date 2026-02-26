@@ -33,6 +33,7 @@ class Application extends Model
         'reviewed_by',
         'approved_by',
         'notes',
+        'bank_statement_import_id',
     ];
 
     protected $casts = [
@@ -124,6 +125,14 @@ class Application extends Model
     public function bankStatementImports(): HasMany
     {
         return $this->hasMany(BankStatementImport::class);
+    }
+
+    /**
+     * Get the primary bank statement import for the application.
+     */
+    public function bankStatementImport(): BelongsTo
+    {
+        return $this->belongsTo(BankStatementImport::class, 'bank_statement_import_id');
     }
 
     /**

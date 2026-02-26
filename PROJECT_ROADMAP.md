@@ -339,6 +339,15 @@
 - [x] Export analytics to PDF
 - [x] Export analytics to Excel
 
+### 5.8 Bank Statement Integration with Applications ✅ NEW
+- [x] Add bank_statement_import_id to applications table
+- [x] Update Application model with bank statement relationships
+- [x] ApplicationController uploadStatement method
+- [x] Bank statement upload route for applications
+- [x] Bank statement upload UI in Applications/Show page
+- [x] Display uploaded statements with status in Applications/Show
+- [x] Bank statement analytics display in underwriting review
+
 ---
 
 ## Phase 6: Eligibility & Underwriting Engine
