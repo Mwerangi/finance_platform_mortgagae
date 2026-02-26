@@ -92,8 +92,8 @@ class CollectionsController extends Controller
             ->whereHas('roles', function ($q) {
                 $q->where('name', 'collections-officer');
             })
-            ->orderBy('first_name')
-            ->get(['id', 'first_name', 'last_name']);
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return Inertia::render('Collections/Index', [
             'queue' => $queue,

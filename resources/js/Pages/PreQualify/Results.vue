@@ -721,11 +721,14 @@
                                 <p class="small mb-2">If you proceed with the application, you'll need to provide:</p>
                                 <ul class="small">
                                     <li>Complete KYC documents</li>
-                                    <li v-if="prospect.customer_type === 'salaried'">
+                                    <li v-if="prospect.customer_type === 'salary'">
                                         Employment verification documents
                                     </li>
-                                    <li v-else>
+                                    <li v-else-if="prospect.customer_type === 'business'">
                                         Business registration & financial statements
+                                    </li>
+                                    <li v-else>
+                                        Employment & business documents
                                     </li>
                                     <li>Property title deed</li>
                                     <li>Property valuation report</li>
@@ -850,7 +853,12 @@ const getRatioClass = (ratio, max) => {
 };
 
 const formatCustomerType = (type) => {
-    return type === 'salaried' ? 'Salaried Employee' : 'Self-Employed';
+    const types = {
+        'salary': 'Salaried Employee',
+        'business': 'Self-Employed / Business',
+        'mixed': 'Mixed Income'
+    };
+    return types[type] || type;
 };
 
 const formatLoanPurpose = (purpose) => {

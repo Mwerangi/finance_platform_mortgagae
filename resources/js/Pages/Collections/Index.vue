@@ -12,6 +12,8 @@ const props = defineProps({
     filters: Object
 });
 
+const showGenerateModal = ref(false);
+
 const filterForm = ref({
     status: props.filters.status || '',
     priority_level: props.filters.priority_level || '',
@@ -40,11 +42,14 @@ const applyFilters = () => {
 };
 
 const generateQueue = () => {
-    if (confirm('Generate/refresh collections queue? This will identify all overdue loans.')) {
-        router.post('/collections/generate', {}, {
-            preserveScroll: true,
-        });
-    }
+    showGenerateModal.value = true;
+};
+
+const confirmGenerateQueue = () => {
+    showGenerateModal.value = false;
+    router.post('/collections/generate', {}, {
+        preserveScroll: true,
+    });
 };
 
 const getPriorityVariant = (level) => {
@@ -221,7 +226,7 @@ const formatDate = (date) => {
                         <select v-model="filterForm.assigned_to" class="form-select" @change="applyFilters">
                             <option value="">All Officers</option>
                             <option v-for="officer in officers" :key="officer.id" :value="officer.id">
-                                {{ officer.first_name }} {{ officer.last_name }}
+                                {{ officer.name }}
                             </option>
                         </select>
                     </div>
@@ -304,7 +309,7 @@ const formatDate = (date) => {
                                 </td>
                                 <td>
                                     <span v-if="item.assigned_to">
-                                        {{ item.assigned_to.first_name }} {{ item.assigned_to.last_name }}
+                                        {{ item.assigned_to.name }}
                                     </span>
                                     <span v-else class="text-muted">Unassigned</span>
                                 </td>
@@ -367,6 +372,43 @@ const formatDate = (date) => {
                     </nav>
                 </div>
             </Card>
+        </div>
+
+        <!-- Generate Queue Confirmation Modal -->
+        <div v-if="showGenerateModal" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-arrow-repeat me-2"></i>
+                            Generate Collections Queue
+                        </h5>
+                        <button type="button" class="btn-close" @click="showGenerateModal = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            This will scan all active loans and identify those that are overdue.
+                        </div>
+                        <p class="mb-2">The system will:</p>
+                        <ul class="mb-0">
+                            <li>Identify all loans with outstanding payments past their due date</li>
+                            <li>Calculate priority scores based on days past due and arrears amount</li>
+                            <li>Update existing queue items with current delinquency information</li>
+                            <li>Create new queue items for newly identified overdue loans</li>
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @click="showGenerateModal = false">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary" @click="confirmGenerateQueue">
+                            <i class="bi bi-arrow-repeat me-1"></i>
+                            Generate Queue
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </AppLayout>
 </template>

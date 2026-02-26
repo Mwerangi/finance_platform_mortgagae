@@ -97,6 +97,27 @@
                                 </p>
                             </div>
 
+                            <!-- Timeout Warning -->
+                            <div v-if="isStuck" class="alert alert-warning mt-4 mb-0">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Processing seems stuck!</strong> 
+                                The system has been processing for over 5 minutes without progress. 
+                                You may want to cancel and try again with a different file format.
+                            </div>
+
+                            <!-- Cancel Button -->
+                            <div class="mt-4">
+                                <button 
+                                    type="button" 
+                                    :class="isStuck ? 'btn btn-danger' : 'btn btn-outline-danger'"
+                                    @click="showCancelModal = true"
+                                    :disabled="cancelling || status.status === 'completed'"
+                                >
+                                    <i class="bi bi-x-circle me-2"></i>
+                                    Cancel Processing
+                                </button>
+                            </div>
+
                             <!-- Applicant Summary -->
                             <div class="mt-4 pt-4 border-top">
                                 <div class="row text-start">
@@ -125,6 +146,49 @@
                 </div>
             </div>
         </div>
+
+        <!-- Cancel Confirmation Modal -->
+        <div class="modal fade" :class="{ 'show d-block': showCancelModal }" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" v-if="showCancelModal">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                            Cancel Processing?
+                        </h5>
+                        <button type="button" class="btn-close" @click="showCancelModal = false" :disabled="cancelling"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">Are you sure you want to cancel the bank statement processing?</p>
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <small>
+                                <i class="bi bi-info-circle me-1"></i>
+                                <strong>Note:</strong> This will delete the uploaded statement and reset the process. You'll need to upload the statement again.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button 
+                            type="button" 
+                            class="btn btn-secondary" 
+                            @click="showCancelModal = false"
+                            :disabled="cancelling"
+                        >
+                            No, Continue Processing
+                        </button>
+                        <button 
+                            type="button" 
+                            class="btn btn-danger" 
+                            @click="confirmCancel"
+                            :disabled="cancelling"
+                        >
+                            <span v-if="cancelling" class="spinner-border spinner-border-sm me-2"></span>
+                            Yes, Cancel Processing
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </AppLayout>
 </template>
 
@@ -147,8 +211,26 @@ const status = ref({
 });
 
 const pollInterval = ref(null);
+const showCancelModal = ref(false);
+const cancelling = ref(false);
+const startTime = ref(Date.now());
+const lastProgress = ref(0);
+const lastProgressTime = ref(Date.now());
 
 const progress = computed(() => status.value.progress || 0);
+
+// Check if processing is stuck (no progress for 5 minutes)
+const isStuck = computed(() => {
+    const now = Date.now();
+    const timeSinceStart = (now - startTime.value) / 1000 / 60; // minutes
+    const timeSinceLastProgress = (now - lastProgressTime.value) / 1000 / 60; // minutes
+    
+    // Consider stuck if:
+    // 1. More than 5 minutes since start AND no progress
+    // 2. OR More than 3 minutes with no progress change
+    return (timeSinceStart > 5 && progress.value === 0) || 
+           (timeSinceLastProgress > 3 && status.value.status === 'processing');
+});
 
 const statusMessage = computed(() => {
     switch (status.value.status) {
@@ -179,6 +261,12 @@ const checkStatus = async () => {
         
         const data = await response.json();
         
+        // Track progress changes for stuck detection
+        if (data.progress > lastProgress.value) {
+            lastProgress.value = data.progress;
+            lastProgressTime.value = Date.now();
+        }
+        
         status.value = data;
 
         // If processing is complete and assessment is ready, redirect to results
@@ -196,6 +284,26 @@ const checkStatus = async () => {
     } catch (error) {
         console.error('Failed to check status:', error);
     }
+};
+
+const confirmCancel = async () => {
+    cancelling.value = true;
+    
+    router.post(`/pre-qualify/${props.prospect.id}/cancel-processing`, {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showCancelModal.value = false;
+            if (pollInterval.value) {
+                clearInterval(pollInterval.value);
+            }
+        },
+        onError: (errors) => {
+            alert('Error: ' + (errors.error || 'Failed to cancel processing'));
+        },
+        onFinish: () => {
+            cancelling.value = false;
+        }
+    });
 };
 
 onMounted(() => {

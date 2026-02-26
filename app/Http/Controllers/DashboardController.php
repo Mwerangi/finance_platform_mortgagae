@@ -24,42 +24,62 @@ class DashboardController extends Controller
 
         try {
             // Get dashboard data
-            $stats = $this->dashboardService->getExecutiveDashboard($institutionId);
+            $dashboardData = $this->dashboardService->getExecutiveDashboard($institutionId);
             
-            // Get recent applications (mock data for now)
-            $recentApplications = [
-                [
-                    'id' => 1,
-                    'application_number' => 'APP-2026-001',
-                    'customer_name' => 'John Doe',
-                    'customer_email' => 'john@example.com',
-                    'amount' => 50000000,
-                    'status' => 'under_review',
-                    'created_at' => '2026-02-20'
-                ],
-                [
-                    'id' => 2,
-                    'application_number' => 'APP-2026-002',
-                    'customer_name' => 'Jane Smith',
-                    'customer_email' => 'jane@example.com',
-                    'amount' => 75000000,
-                    'status' => 'approved',
-                    'created_at' => '2026-02-19'
-                ],
-                [
-                    'id' => 3,
-                    'application_number' => 'APP-2026-003',
-                    'customer_name' => 'Bob Johnson',
-                    'customer_email' => 'bob@example.com',
-                    'amount' => 30000000,
-                    'status' => 'pending',
-                    'created_at' => '2026-02-18'
-                ],
+            // Format stats for the view
+            $stats = [
+                'applications_total' => $dashboardData['applications']['total'] ?? 0,
+                'applications_pending' => $dashboardData['applications']['pending'] ?? 0,
+                'applications_approved' => $dashboardData['applications']['approved'] ?? 0,
+                'applications_declined' => $dashboardData['applications']['declined'] ?? 0,
+                'approval_rate' => $dashboardData['applications']['approval_rate'] ?? 0,
+                
+                'loans_total' => $dashboardData['portfolio']['total_loans'] ?? 0,
+                'loans_active' => $dashboardData['portfolio']['active_loans'] ?? 0,
+                'loans_in_arrears' => $dashboardData['portfolio']['loans_in_arrears'] ?? 0,
+                
+                'portfolio_value' => $dashboardData['portfolio']['total_outstanding'] ?? 0,
+                'portfolio_disbursed' => $dashboardData['portfolio']['total_disbursed'] ?? 0,
+                'portfolio_collected' => $dashboardData['portfolio']['total_collected'] ?? 0,
+                'portfolio_arrears' => $dashboardData['portfolio']['total_arrears'] ?? 0,
+                
+                'npl_count' => $dashboardData['portfolio']['npl_count'] ?? 0,
+                'npl_ratio' => $dashboardData['portfolio']['npl_ratio'] ?? 0,
+                'par30_ratio' => $dashboardData['portfolio']['par30_ratio'] ?? 0,
+                
+                'collections_queue' => $dashboardData['collections']['total_in_queue'] ?? 0,
+                'collections_critical' => $dashboardData['collections']['critical_items'] ?? 0,
+                'collections_arrears' => $dashboardData['collections']['total_arrears_in_queue'] ?? 0,
+                'avg_dpd' => $dashboardData['collections']['avg_days_past_due'] ?? 0,
+                
+                'collection_rate' => $dashboardData['portfolio']['total_disbursed'] > 0 
+                    ? round(($dashboardData['portfolio']['total_collected'] / $dashboardData['portfolio']['total_disbursed']) * 100, 2) 
+                    : 0,
             ];
+            
+            // Get recent applications
+            $recentApplications = \App\Models\Application::where('institution_id', $institutionId)
+                ->with(['customer', 'loanProduct'])
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(function ($app) {
+                    return [
+                        'id' => $app->id,
+                        'application_number' => $app->application_number,
+                        'customer_name' => $app->customer->first_name . ' ' . $app->customer->last_name,
+                        'customer_email' => $app->customer->email,
+                        'amount' => $app->requested_amount,
+                        'product' => $app->loanProduct->name ?? 'N/A',
+                        'status' => $app->status->value,
+                        'created_at' => $app->created_at->format('Y-m-d')
+                    ];
+                });
 
             return Inertia::render('Dashboard/Executive', [
                 'stats' => $stats,
                 'recentApplications' => $recentApplications,
+                'trends' => $dashboardData['trends'] ?? [],
             ]);
         } catch (\Exception $e) {
             // If dashboard service fails, return with empty data
@@ -71,6 +91,8 @@ class DashboardController extends Controller
                     'collection_rate' => 0,
                 ],
                 'recentApplications' => [],
+                'trends' => [],
+                'error' => $e->getMessage(),
             ]);
         }
     }

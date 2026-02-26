@@ -154,6 +154,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('pre-qualify.processing');
     Route::get('/pre-qualify/{prospect}/status', [\App\Http\Controllers\Web\ProspectController::class, 'checkStatus'])
         ->name('pre-qualify.check-status');
+    Route::post('/pre-qualify/{prospect}/cancel-processing', [\App\Http\Controllers\Web\ProspectController::class, 'cancelProcessing'])
+        ->name('pre-qualify.cancel-processing');
     Route::post('/pre-qualify/{prospect}/retry-analytics', [\App\Http\Controllers\Web\ProspectController::class, 'retryAnalytics'])
         ->name('pre-qualify.retry-analytics');
     Route::get('/pre-qualify/{prospect}/results', [\App\Http\Controllers\Web\ProspectController::class, 'results'])

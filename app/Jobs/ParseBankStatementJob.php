@@ -164,8 +164,9 @@ class ParseBankStatementJob implements ShouldQueue
                     }
 
                     // Create transaction hash for deduplication
+                    // Use import_id instead of customer_id to allow same file to be imported multiple times
                     $hash = md5(
-                        $this->import->customer_id .
+                        $this->import->id .
                         $transactionDate->format('Y-m-d') .
                         $description .
                         $debit .

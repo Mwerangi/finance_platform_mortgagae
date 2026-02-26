@@ -13,6 +13,7 @@ use App\Services\StatementAnalyticsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -50,7 +51,7 @@ class ProspectController extends Controller
             'phone' => 'required|string|max:20',
             'email' => 'nullable|email|max:255',
             'id_number' => 'required|string|max:50|unique:prospects,id_number',
-            'customer_type' => ['required', Rule::in(['salaried', 'self_employed'])],
+            'customer_type' => ['required', Rule::in(['salary', 'business', 'mixed'])],
             'loan_purpose' => ['required', Rule::in([
                 'home_purchase',
                 'home_refinance',
@@ -203,7 +204,7 @@ class ProspectController extends Controller
         }
 
         $response = [
-            'status' => $statementImport->import_status,
+            'status' => $statementImport->import_status->value,
             'rows_processed' => $statementImport->rows_processed,
             'rows_total' => $statementImport->rows_total,
             'progress' => $statementImport->rows_total > 0 
@@ -212,7 +213,7 @@ class ProspectController extends Controller
         ];
 
         // Check if analytics are computed and assessment is done
-        if ($statementImport->import_status === 'completed') {
+        if ($statementImport->import_status->value === 'completed') {
             $hasAnalytics = $statementImport->analytics()->exists();
             $hasAssessment = $prospect->eligibility_assessment_id !== null;
 
@@ -222,6 +223,57 @@ class ProspectController extends Controller
         }
 
         return response()->json($response);
+    }
+
+    /**
+     * Cancel bank statement processing and revert to statement upload step
+     */
+    public function cancelProcessing(Prospect $prospect)
+    {
+        // Ensure user can access this prospect
+        if ($prospect->institution_id !== auth()->user()->institution_id) {
+            abort(403);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $statementImport = $prospect->statementImport;
+
+            if ($statementImport) {
+                // Delete the uploaded file from storage
+                if ($statementImport->file_path && Storage::disk('private')->exists($statementImport->file_path)) {
+                    Storage::disk('private')->delete($statementImport->file_path);
+                }
+
+                // Delete related analytics if any
+                if ($statementImport->analytics) {
+                    $statementImport->analytics->delete();
+                }
+
+                // Delete the statement import record
+                $statementImport->delete();
+            }
+
+            // Reset prospect status and remove statement reference
+            $prospect->update([
+                'bank_statement_import_id' => null,
+                'status' => 'pending',
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('pre-qualify.statement', $prospect->id)
+                ->with('success', 'Processing cancelled. You can upload a new statement.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to cancel processing: ' . $e->getMessage());
+            
+            return back()->withErrors([
+                'error' => 'Failed to cancel processing: ' . $e->getMessage()
+            ]);
+        }
     }
 
     /**

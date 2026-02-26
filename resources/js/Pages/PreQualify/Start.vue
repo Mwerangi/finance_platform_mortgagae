@@ -181,14 +181,15 @@
                                             required
                                         >
                                             <option value="">Select employment type...</option>
-                                            <option value="salaried">Salaried Employee</option>
-                                            <option value="self_employed">Self-Employed / Business Owner</option>
+                                            <option value="salary">Salaried Employee</option>
+                                            <option value="business">Self-Employed / Business Owner</option>
+                                            <option value="mixed">Mixed Income</option>
                                         </select>
                                         <div v-if="form.errors.customer_type" class="invalid-feedback">
                                             {{ form.errors.customer_type }}
                                         </div>
                                         <small class="text-muted">
-                                            Salaried: 12-month statements required. Self-employed: 24-month statements required.
+                                            Salary: 12-month statements required. Business/Mixed: 24-month statements required.
                                         </small>
                                     </div>
                                 </div>

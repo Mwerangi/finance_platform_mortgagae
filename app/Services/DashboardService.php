@@ -36,17 +36,15 @@ class DashboardService
     protected function getApplicationMetrics(int $institutionId, Carbon $startDate, Carbon $endDate): array
     {
         $applications = Application::where('institution_id', $institutionId)
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->with('underwritingDecision')
             ->get();
 
         $total = $applications->count();
-        $approved = $applications->filter(fn($a) => $a->underwritingDecision?->final_decision === 'approved')->count();
-        $declined = $applications->filter(fn($a) => $a->underwritingDecision?->final_decision === 'declined')->count();
-        $pending = $applications->filter(fn($a) => !$a->underwritingDecision || $a->underwritingDecision->final_decision === 'pending')->count();
+        $approved = $applications->filter(fn($a) => in_array($a->status->value, ['approved', 'disbursed']))->count();
+        $declined = $applications->filter(fn($a) => $a->status->value === 'rejected')->count();
+        $pending = $applications->filter(fn($a) => in_array($a->status->value, ['draft', 'submitted', 'under_review']))->count();
 
-        $approvedAmount = $applications->filter(fn($a) => $a->underwritingDecision?->final_decision === 'approved')
-            ->sum(fn($a) => $a->underwritingDecision->approved_amount ?? 0);
+        $approvedAmount = $applications->filter(fn($a) => in_array($a->status->value, ['approved', 'disbursed']))
+            ->sum('requested_amount');
 
         return [
             'total' => $total,
@@ -161,7 +159,7 @@ class DashboardService
             $collections = Repayment::where('institution_id', $institutionId)
                 ->whereBetween('payment_date', [$monthStart, $monthEnd])
                 ->where('status', 'confirmed')
-                ->sum('payment_amount');
+                ->sum('amount');
 
             // Get or calculate snapshot for month-end
             $snapshot = PortfolioSnapshot::where('institution_id', $institutionId)
@@ -381,10 +379,10 @@ class DashboardService
 
         return [
             'count' => $collections->count(),
-            'amount' => $collections->sum('payment_amount'),
+            'amount' => $collections->sum('amount'),
             'principal' => $collections->sum('principal_amount'),
             'interest' => $collections->sum('interest_amount'),
-            'penalties' => $collections->sum('penalty_amount'),
+            'penalties' => $collections->sum('penalties_amount'),
         ];
     }
 }

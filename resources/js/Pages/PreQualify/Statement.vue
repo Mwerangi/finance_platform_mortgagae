@@ -171,11 +171,11 @@
                                     <i class="bi bi-exclamation-triangle me-2"></i>
                                     <strong>Required Statement Period:</strong>
                                     <ul class="mb-0 mt-2">
-                                        <li v-if="prospect.customer_type === 'salaried'">
+                                        <li v-if="prospect.customer_type === 'salary'">
                                             <strong>Salaried Employees:</strong> Last 12 months bank statement
                                         </li>
                                         <li v-else>
-                                            <strong>Self-Employed:</strong> Last 24 months bank statement
+                                            <strong>Self-Employed/Business:</strong> Last 24 months bank statement
                                         </li>
                                     </ul>
                                 </div>
@@ -275,7 +275,12 @@ const submit = () => {
 };
 
 const formatCustomerType = (type) => {
-    return type === 'salaried' ? 'Salaried Employee' : 'Self-Employed';
+    const types = {
+        'salary': 'Salaried Employee',
+        'business': 'Self-Employed / Business',
+        'mixed': 'Mixed Income'
+    };
+    return types[type] || type;
 };
 
 const formatLoanPurpose = (purpose) => {

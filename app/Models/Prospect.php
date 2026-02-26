@@ -39,6 +39,7 @@ class Prospect extends Model
     ];
 
     protected $casts = [
+        'customer_type' => \App\Enums\CustomerType::class,
         'requested_amount' => 'decimal:2',
         'property_value' => 'decimal:2',
         'requested_tenure' => 'integer',
