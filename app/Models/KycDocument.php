@@ -74,6 +74,20 @@ class KycDocument extends Model
                 }
             }
         });
+
+        // Update customer profile completion when document is saved
+        static::saved(function ($document) {
+            if ($document->customer) {
+                $document->customer->updateProfileCompletion();
+            }
+        });
+
+        // Update customer profile completion when document is deleted
+        static::deleted(function ($document) {
+            if ($document->customer) {
+                $document->customer->updateProfileCompletion();
+            }
+        });
     }
 
     /**

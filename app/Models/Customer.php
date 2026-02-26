@@ -183,37 +183,139 @@ class Customer extends Model
 
     /**
      * Update profile completion percentage.
+     * Tracks: basic info, contact details, employment, next of kin, and KYC documents
      */
     public function updateProfileCompletion(): void
     {
-        $fields = [
-            'first_name',
-            'last_name',
-            'date_of_birth',
-            'gender',
-            'national_id',
-            'phone_primary',
-            'email',
-            'physical_address',
-            'city',
-            'occupation',
+        $totalScore = 0;
+        $maxScore = 0;
+
+        // 1. Basic Information (30 points)
+        $basicFields = [
+            'first_name' => 5,
+            'last_name' => 5,
+            'date_of_birth' => 3,
+            'gender' => 2,
+            'national_id' => 5,
+            'marital_status' => 2,
         ];
-
-        // Additional fields based on customer type
-        if ($this->customer_type === CustomerType::SALARY) {
-            $fields[] = 'employer_name';
-        } elseif ($this->customer_type === CustomerType::BUSINESS) {
-            $fields[] = 'business_name';
-        }
-
-        $filled = 0;
-        foreach ($fields as $field) {
+        
+        foreach ($basicFields as $field => $points) {
+            $maxScore += $points;
             if (!empty($this->$field)) {
-                $filled++;
+                $totalScore += $points;
             }
         }
 
-        $percentage = round(($filled / count($fields)) * 100);
+        // 2. Contact Information (20 points)
+        $contactFields = [
+            'phone_primary' => 7,
+            'email' => 7,
+            'physical_address' => 3,
+            'city' => 2,
+            'country' => 1,
+        ];
+        
+        foreach ($contactFields as $field => $points) {
+            $maxScore += $points;
+            if (!empty($this->$field)) {
+                $totalScore += $points;
+            }
+        }
+
+        // 3. Employment/Business Information (20 points)
+        $employmentPoints = 20;
+        $maxScore += $employmentPoints;
+        
+        if ($this->customer_type === CustomerType::SALARY) {
+            $employmentFilled = 0;
+            $employmentTotal = 3;
+            if (!empty($this->employer_name)) $employmentFilled++;
+            if (!empty($this->occupation)) $employmentFilled++;
+            if (!empty($this->employment_start_date)) $employmentFilled++;
+            $totalScore += round(($employmentFilled / $employmentTotal) * $employmentPoints);
+        } elseif ($this->customer_type === CustomerType::BUSINESS) {
+            $businessFilled = 0;
+            $businessTotal = 3;
+            if (!empty($this->business_name)) $businessFilled++;
+            if (!empty($this->industry)) $businessFilled++;
+            if (!empty($this->occupation)) $businessFilled++;
+            $totalScore += round(($businessFilled / $businessTotal) * $employmentPoints);
+        } else {
+            // If type not specified, give partial credit for any employment field
+            if (!empty($this->employer_name) || !empty($this->business_name) || !empty($this->occupation)) {
+                $totalScore += round($employmentPoints / 2);
+            }
+        }
+
+        // 4. Next of Kin Information (10 points)
+        $nokFields = [
+            'next_of_kin_name' => 4,
+            'next_of_kin_relationship' => 2,
+            'next_of_kin_phone' => 4,
+        ];
+        
+        foreach ($nokFields as $field => $points) {
+            $maxScore += $points;
+            if (!empty($this->$field)) {
+                $totalScore += $points;
+            }
+        }
+
+        // 5. KYC Documents (20 points)
+        $kycPoints = 20;
+        $maxScore += $kycPoints;
+        
+        // Required document types for complete KYC
+        $requiredDocTypes = [
+            'national_id',
+            'passport',
+            'utility_bill',
+            'bank_statement',
+        ];
+        
+        $uploadedDocTypes = $this->kycDocuments()
+            ->whereNull('deleted_at')
+            ->pluck('document_type')
+            ->map(fn($type) => $type->value ?? $type)
+            ->unique()
+            ->toArray();
+        
+        $docScore = 0;
+        $verifiedDocCount = 0;
+        
+        foreach ($requiredDocTypes as $docType) {
+            if (in_array($docType, $uploadedDocTypes)) {
+                $docScore += ($kycPoints / count($requiredDocTypes));
+                
+                // Check if this document type is verified
+                $isVerified = $this->kycDocuments()
+                    ->whereNull('deleted_at')
+                    ->where('document_type', $docType)
+                    ->where('verification_status', \App\Enums\VerificationStatus::VERIFIED)
+                    ->exists();
+                
+                if ($isVerified) {
+                    $verifiedDocCount++;
+                }
+            }
+        }
+        
+        $totalScore += $docScore;
+
+        // Bonus: KYC Verified Status (additional 5 points if all docs verified)
+        if ($this->kyc_verified || $verifiedDocCount >= count($requiredDocTypes)) {
+            $totalScore += 5;
+            $maxScore += 5;
+        } else {
+            $maxScore += 5;
+        }
+
+        // Calculate final percentage
+        $percentage = $maxScore > 0 ? round(($totalScore / $maxScore) * 100) : 0;
+        
+        // Ensure percentage is between 0 and 100
+        $percentage = min(100, max(0, $percentage));
         
         if ($this->profile_completion_percentage !== $percentage) {
             $this->updateQuietly(['profile_completion_percentage' => $percentage]);

@@ -97,6 +97,83 @@
                   </div>
                   <span class="fw-bold">{{ customer.profile_completion_percentage }}%</span>
                 </div>
+                
+                <!-- Profile Completion Breakdown -->
+                <div class="mt-2">
+                  <button 
+                    class="btn btn-sm btn-link text-decoration-none p-0" 
+                    @click="showCompletionBreakdown = !showCompletionBreakdown"
+                    type="button"
+                  >
+                    <i :class="showCompletionBreakdown ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    {{ showCompletionBreakdown ? 'Hide' : 'Show' }} details
+                  </button>
+                  
+                  <div v-if="showCompletionBreakdown" class="mt-2 small">
+                    <div class="card bg-light border-0">
+                      <div class="card-body p-2">
+                        <div class="mb-2">
+                          <div class="d-flex justify-content-between">
+                            <span>Basic Information</span>
+                            <span :class="getBasicInfoScore() >= 25 ? 'text-success' : 'text-warning'">
+                              {{ getBasicInfoScore() }}/30
+                            </span>
+                          </div>
+                          <small class="text-muted">Name, DOB, ID, Gender, Marital Status</small>
+                        </div>
+                        
+                        <div class="mb-2">
+                          <div class="d-flex justify-content-between">
+                            <span>Contact Details</span>
+                            <span :class="getContactScore() >= 16 ? 'text-success' : 'text-warning'">
+                              {{ getContactScore() }}/20
+                            </span>
+                          </div>
+                          <small class="text-muted">Phone, Email, Address</small>
+                        </div>
+                        
+                        <div class="mb-2">
+                          <div class="d-flex justify-content-between">
+                            <span>Employment Info</span>
+                            <span :class="getEmploymentScore() >= 14 ? 'text-success' : 'text-warning'">
+                              {{ getEmploymentScore() }}/20
+                            </span>
+                          </div>
+                          <small class="text-muted">
+                            {{ customer.customer_type === 'salary' ? 'Employer, Occupation' : 'Business, Industry' }}
+                          </small>
+                        </div>
+                        
+                        <div class="mb-2">
+                          <div class="d-flex justify-content-between">
+                            <span>Next of Kin</span>
+                            <span :class="getNextOfKinScore() >= 8 ? 'text-success' : 'text-warning'">
+                              {{ getNextOfKinScore() }}/10
+                            </span>
+                          </div>
+                          <small class="text-muted">Name, Relationship, Contact</small>
+                        </div>
+                        
+                        <div class="mb-2">
+                          <div class="d-flex justify-content-between">
+                            <span>KYC Documents</span>
+                            <span :class="getKycDocScore() >= 16 ? 'text-success' : 'text-warning'">
+                              {{ getKycDocScore() }}/20
+                            </span>
+                          </div>
+                          <small class="text-muted">ID, Passport, Utility Bill, Bank Statement</small>
+                        </div>
+                        
+                        <div v-if="customer.kyc_verified">
+                          <div class="d-flex justify-content-between text-success">
+                            <span><i class="bi bi-check-circle-fill"></i> KYC Verified</span>
+                            <span>+5</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="mb-3">
@@ -458,6 +535,7 @@ const uploading = ref(false);
 const uploadProgress = ref(0);
 const uploadErrors = ref({});
 const verifying = ref(false);
+const showCompletionBreakdown = ref(false);
 
 const uploadForm = ref({
   document_type: '',
@@ -653,5 +731,76 @@ const calculateAge = (dob) => {
   }
   
   return age;
+};
+
+// Profile completion score calculators
+const getBasicInfoScore = () => {
+  let score = 0;
+  if (props.customer.first_name) score += 5;
+  if (props.customer.last_name) score += 5;
+  if (props.customer.date_of_birth) score += 3;
+  if (props.customer.gender) score += 2;
+  if (props.customer.national_id) score += 5;
+  if (props.customer.marital_status) score += 2;
+  return score;
+};
+
+const getContactScore = () => {
+  let score = 0;
+  if (props.customer.phone_primary) score += 7;
+  if (props.customer.email) score += 7;
+  if (props.customer.physical_address) score += 3;
+  if (props.customer.city) score += 2;
+  if (props.customer.country) score += 1;
+  return score;
+};
+
+const getEmploymentScore = () => {
+  let score = 0;
+  const maxScore = 20;
+  
+  if (props.customer.customer_type === 'salary') {
+    let filled = 0;
+    if (props.customer.employer_name) filled++;
+    if (props.customer.occupation) filled++;
+    if (props.customer.employment_start_date) filled++;
+    score = Math.round((filled / 3) * maxScore);
+  } else if (props.customer.customer_type === 'business') {
+    let filled = 0;
+    if (props.customer.business_name) filled++;
+    if (props.customer.industry) filled++;
+    if (props.customer.occupation) filled++;
+    score = Math.round((filled / 3) * maxScore);
+  } else {
+    if (props.customer.employer_name || props.customer.business_name || props.customer.occupation) {
+      score = Math.round(maxScore / 2);
+    }
+  }
+  
+  return score;
+};
+
+const getNextOfKinScore = () => {
+  let score = 0;
+  if (props.customer.next_of_kin_name) score += 4;
+  if (props.customer.next_of_kin_relationship) score += 2;
+  if (props.customer.next_of_kin_phone) score += 4;
+  return score;
+};
+
+const getKycDocScore = () => {
+  const requiredDocTypes = ['national_id', 'passport', 'utility_bill', 'bank_statement'];
+  const kycDocs = props.kycDocuments || [];
+  
+  const uploadedTypes = [...new Set(kycDocs.map(doc => doc.document_type))];
+  
+  let score = 0;
+  requiredDocTypes.forEach(docType => {
+    if (uploadedTypes.includes(docType)) {
+      score += 5; // 20 points / 4 required docs = 5 points each
+    }
+  });
+  
+  return score;
 };
 </script>
