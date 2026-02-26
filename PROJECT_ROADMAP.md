@@ -1,8 +1,8 @@
 # White-Label Mortgage Platform - Development Roadmap
 ## Project Tracking & Checklist
 
-**Last Updated:** February 24, 2026  
-**Status:** 80% Complete - Testing Phase  
+**Last Updated:** February 26, 2026  
+**Status:** 85% Complete - Testing Phase  
 **Version:** 1.0
 
 ---
@@ -146,104 +146,198 @@
 
 ## Phase 4: Customer & KYC Management Module
 ### 4.1 Customer Management
-- [ ] Customers table migration
-- [ ] Customer model with relationships
-- [ ] Customer type (salary/business/mixed)
-- [ ] Customer CRUD API endpoints
-- [ ] Customer profile completion tracking
-- [ ] Customer search & filtering
-- [ ] Customer deduplication logic
-- [ ] Customer status management
+- [x] Customers table migration
+- [x] Customer model with relationships
+- [x] Customer type (salary/business/mixed)
+- [x] Customer CRUD API endpoints
+- [x] Customer profile completion tracking
+- [x] Customer search & filtering
+- [x] Customer deduplication logic
+- [x] Customer status management
 
 ### 4.2 KYC Document Management
-- [ ] KYC documents table migration
-- [ ] Document type enumeration
-- [ ] Document upload API
-- [ ] File storage integration
-- [ ] Document verification workflow
-- [ ] Document expiry tracking
-- [ ] Document status (pending/verified/rejected/expired)
-- [ ] Document viewer/download API
-- [ ] Verification audit trail
+- [x] KYC documents table migration
+- [x] Document type enumeration
+- [x] Document upload API
+- [x] File storage integration
+- [x] Document verification workflow
+- [x] Document expiry tracking
+- [x] Document status (pending/verified/rejected/expired)
+- [x] Document viewer/download API
+- [x] Verification audit trail
 
 ### 4.3 Customer Information Fields
-- [ ] Personal information (name, DOB, phone, email, address)
-- [ ] National ID (NIDA) integration readiness
-- [ ] TIN (Tax ID) capture
-- [ ] Employer/business name capture
-- [ ] Next of kin information
-- [ ] Contact information validation
-- [ ] Customer notes & comments system
+- [x] Personal information (name, DOB, phone, email, address)
+- [x] National ID (NIDA) integration readiness
+- [x] TIN (Tax ID) capture
+- [x] Employer/business name capture
+- [x] Next of kin information
+- [x] Contact information validation
+- [x] Customer notes & comments system
+
+---
+
+## Phase 4.5: Pre-Qualification Module ✅ NEW
+### 4.5.1 Prospect Management
+- [x] Prospects table migration
+- [x] Prospect model with relationships
+- [x] Prospect CRUD operations
+- [x] Prospect status workflow (pending/statement_uploaded/eligibility_passed/eligibility_failed/converted)
+- [x] Customer type enum (salary/business/mixed)
+- [x] Prospect conversion to customer
+
+### 4.5.2 Pre-Qualification Form
+- [x] Pre-qualify start page UI
+- [x] Personal information capture (name, phone, email, ID number)
+- [x] Loan request details (purpose, amount, tenure)
+- [x] Property information (location, value)
+- [x] Customer type selection
+- [x] Form validation
+- [x] Progress indicator (3 steps)
+
+### 4.5.3 Bank Statement Upload
+- [x] Bank statement upload page UI
+- [x] File upload with validation (Excel format)
+- [x] Bank name and account number capture
+- [x] File type validation (xlsx/xls/csv)
+- [x] File size validation (max 10MB)
+- [x] Upload progress indication
+
+### 4.5.4 Processing & Analytics
+- [x] Processing status page with real-time polling
+- [x] Progress percentage calculation
+- [x] Status messages (pending/processing/computing analytics)
+- [x] Stuck detection (5+ min no progress warning)
+- [x] Cancel processing functionality
+- [x] Confirmation modal for cancellation
+- [x] Complete cleanup on cancel (file, analytics, import)
+- [x] Automatic redirect to results when complete
+
+### 4.5.5 Eligibility Results Display
+- [x] Results page UI with comprehensive assessment
+- [x] Decision display (Eligible/Conditional/Outside Policy)
+- [x] Risk grade and score visualization
+- [x] Income and affordability metrics
+- [x] Maximum loan recommendations
+- [x] Debt-to-income calculations
+- [x] Stress test results
+- [x] Conditions and requirements display
+- [x] Convert to customer workflow
+- [x] Amend loan parameters functionality
+- [x] Manager override capability
+
+### 4.5.6 Bank Statement Processing
+- [x] Import with customer_id=null support (prospect-based)
+- [x] Transaction hash using import_id (prevents duplicate issues)
+- [x] Flexible header detection (multiple format support)
+- [x] Column mapping (date/description/debit/credit/balance)
+- [x] Transaction deduplication per import
+- [x] Batch processing (100 rows at a time)
+- [x] Error logging and handling
+- [x] Import status tracking
+
+### 4.5.7 Analytics & Assessment
+- [x] Statement analytics computation for prospects
+- [x] Eligibility assessment integration
+- [x] Income classification (salary/business/mixed)
+- [x] Risk metrics calculation
+- [x] DTI/DSR/LTV calculations for prospects
+- [x] Affordability analysis
+- [x] Condition generation
+- [x] Decision reasoning
+
+### 4.5.8 Prospects Management UI
+- [x] Prospects list page with filters
+- [x] Prospect detail view
+- [x] Status badges and indicators
+- [x] Eligibility score display
+- [x] Customer type formatting
+- [x] Loan purpose formatting
+- [x] Search and filter functionality
+
+### 4.5.9 Pre-Qualification Routes
+- [x] GET /pre-qualify (start page)
+- [x] POST /pre-qualify (create prospect)
+- [x] GET /pre-qualify/{prospect}/statement (upload page)
+- [x] POST /pre-qualify/{prospect}/statement (upload statement)
+- [x] GET /pre-qualify/{prospect}/processing (processing page)
+- [x] GET /pre-qualify/{prospect}/status (polling endpoint)
+- [x] POST /pre-qualify/{prospect}/cancel-processing (cancel)
+- [x] GET /pre-qualify/{prospect}/results (results page)
+- [x] POST /pre-qualify/{prospect}/convert (convert to customer)
+- [x] POST /pre-qualify/{prospect}/amend-and-reassess (update parameters)
+- [x] POST /pre-qualify/{prospect}/override-decision (manager override)
 
 ---
 
 ## Phase 5: Bank Statement Analytics Engine
 ### 5.1 Excel Template & Upload
-- [ ] Bank statement Excel template creation
-- [ ] Template validation rules documentation
-- [ ] Upload API endpoint
-- [ ] File validation (format, size, extension)
-- [ ] Header validation logic
-- [ ] Data type validation
-- [ ] Date validation (no future dates)
-- [ ] Currency consistency check
-- [ ] Debit/Credit validation rules
+- [x] Bank statement Excel template creation
+- [x] Template validation rules documentation
+- [x] Upload API endpoint
+- [x] File validation (format, size, extension)
+- [x] Header validation logic (flexible detection)
+- [x] Data type validation
+- [x] Date validation (no future dates)
+- [x] Currency consistency check
+- [x] Debit/Credit validation rules
 
 ### 5.2 Bank Statement Import Processing
-- [ ] Bank statement imports table migration
-- [ ] Bank transactions table migration
-- [ ] ParseBankStatementExcelJob implementation
-- [ ] Chunk reading for large files (50k-200k rows)
-- [ ] Row-by-row validation
-- [ ] Transaction deduplication (hash-based)
-- [ ] Import status tracking
-- [ ] Error logging & reporting
-- [ ] Import history per application
+- [x] Bank statement imports table migration
+- [x] Bank transactions table migration
+- [x] ParseBankStatementJob implementation
+- [x] Chunk reading for large files (50k-200k rows)
+- [x] Row-by-row validation
+- [x] Transaction deduplication (hash-based using import_id)
+- [x] Import status tracking
+- [x] Error logging & reporting
+- [x] Import history per application
+- [x] Support for customer and prospect imports
 
 ### 5.3 Statement Analytics Engine
-- [ ] Statement analytics table migration
-- [ ] ComputeStatementAnalyticsJob implementation
-- [ ] Monthly aggregation logic (6-12 months)
-- [ ] Average monthly inflow calculation
-- [ ] Average monthly outflow calculation
-- [ ] Net surplus calculation
-- [ ] Opening/closing balance tracking
+- [x] Statement analytics table migration
+- [x] ComputeAnalyticsJob implementation
+- [x] Monthly aggregation logic (6-12 months)
+- [x] Average monthly inflow calculation
+- [x] Average monthly outflow calculation
+- [x] Net surplus calculation
+- [x] Opening/closing balance tracking
 
 ### 5.4 Income Detection & Classification
-- [ ] Salary pattern detection algorithm
-- [ ] Business pattern detection algorithm
-- [ ] Income type classification
-- [ ] Estimated net income calculation
-- [ ] Income consistency scoring
-- [ ] Income stability score calculation
-- [ ] Multiple income streams detection
+- [x] Salary pattern detection algorithm
+- [x] Business pattern detection algorithm
+- [x] Income type classification
+- [x] Estimated net income calculation
+- [x] Income consistency scoring
+- [x] Income stability score calculation
+- [x] Multiple income streams detection
 
 ### 5.5 Expense & Debt Detection
-- [ ] Recurring debt obligation detection
-- [ ] Loan repayment pattern detection
-- [ ] Credit card payment detection
-- [ ] Rent/lease payment detection
-- [ ] Utility payment pattern detection
-- [ ] Total monthly debt estimate
+- [x] Recurring debt obligation detection
+- [x] Loan repayment pattern detection
+- [x] Credit card payment detection
+- [x] Rent/lease payment detection
+- [x] Utility payment pattern detection
+- [x] Total monthly debt estimate
 
 ### 5.6 Risk Analytics
-- [ ] Cash flow volatility score calculation
-- [ ] Negative balance frequency tracking
-- [ ] Bounce/return transaction detection
-- [ ] Gambling transaction flags
-- [ ] Large unexplained transfers detection
-- [ ] High-risk merchant flags
-- [ ] Risk anomaly flagging system
-- [ ] Analytics summary JSON structure
+- [x] Cash flow volatility score calculation
+- [x] Negative balance frequency tracking
+- [x] Bounce/return transaction detection
+- [x] Gambling transaction flags
+- [x] Large unexplained transfers detection
+- [x] High-risk merchant flags
+- [x] Risk anomaly flagging system
+- [x] Analytics summary JSON structure
 
 ### 5.7 Analytics API & Reporting
-- [ ] Get analytics status endpoint
-- [ ] Get detailed analytics endpoint
-- [ ] Re-run analytics endpoint
-- [ ] Analytics comparison (multiple statements)
-- [ ] Analytics visualization data endpoint
-- [ ] Export analytics to PDF
-- [ ] Export analytics to Excel
+- [x] Get analytics status endpoint
+- [x] Get detailed analytics endpoint
+- [x] Re-run analytics endpoint
+- [x] Analytics comparison (multiple statements)
+- [x] Analytics visualization data endpoint
+- [x] Export analytics to PDF
+- [x] Export analytics to Excel
 
 ---
 
@@ -614,9 +708,12 @@
 
 ### 13.2 Dashboard & Navigation
 - [x] Role-based dashboard
+- [x] Executive dashboard with real-time metrics
+- [x] DashboardService with aggregations
 - [x] Navigation menu structure
 - [x] Widget system (KPI cards)
-- [x] Quick actions panel
+- [x] Quick Access links panel (8 modules)
+- [x] Chart.js integration for visualizations
 - [x] Notifications center
 
 ### 13.3 User Management UI
@@ -648,11 +745,14 @@
 ### 13.7 Application & Underwriting UI
 - [x] Application pipeline view (list)
 - [ ] Application detail page
-- [ ] Bank statement upload interface
-- [ ] Analytics results display
-- [ ] Eligibility results display
+- [x] Bank statement upload interface (prospect flow)
+- [x] Bank statement processing status tracking
+- [x] Processing cancel functionality with cleanup
+- [x] Stuck detection system (5/3 min warnings)
+- [x] Analytics results display (prospect flow)
+- [x] Eligibility results display (prospect flow)
 - [ ] Stress test results display
-- [ ] Decision workflow UI
+- [ ] Decision workflow UI (underwriter)
 - [ ] Override request interface
 - [ ] Supervisor approval interface
 

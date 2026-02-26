@@ -93,6 +93,30 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('applications', \App\Http\Controllers\ApplicationController::class)
         ->where(['application' => '[0-9]+']);
     
+    // Underwriting
+    Route::get('/underwriting/pending-reviews', [\App\Http\Controllers\Web\UnderwritingController::class, 'pendingReviews'])
+        ->name('underwriting.pending-reviews');
+    Route::get('/underwriting/pending-approvals', [\App\Http\Controllers\Web\UnderwritingController::class, 'pendingApprovals'])
+        ->name('underwriting.pending-approvals');
+    Route::get('/underwriting/{decision}/review', [\App\Http\Controllers\Web\UnderwritingController::class, 'showReview'])
+        ->name('underwriting.show-review');
+    Route::get('/underwriting/{decision}/approve', [\App\Http\Controllers\Web\UnderwritingController::class, 'showApproval'])
+        ->name('underwriting.show-approval');
+    Route::post('/underwriting/{decision}/start-review', [\App\Http\Controllers\UnderwritingController::class, 'startReview'])
+        ->name('underwriting.start-review');
+    Route::post('/underwriting/{decision}/complete-review', [\App\Http\Controllers\UnderwritingController::class, 'completeReview'])
+        ->name('underwriting.complete-review');
+    Route::post('/underwriting/{decision}/approve-decision', [\App\Http\Controllers\UnderwritingController::class, 'approveDecision'])
+        ->name('underwriting.approve-decision');
+    Route::post('/underwriting/{decision}/decline-decision', [\App\Http\Controllers\UnderwritingController::class, 'declineDecision'])
+        ->name('underwriting.decline-decision');
+    Route::post('/underwriting/{decision}/request-override', [\App\Http\Controllers\UnderwritingController::class, 'requestOverride'])
+        ->name('underwriting.request-override');
+    Route::post('/underwriting/{decision}/approve-override', [\App\Http\Controllers\UnderwritingController::class, 'approveOverride'])
+        ->name('underwriting.approve-override');
+    Route::post('/underwriting/{decision}/decline-override', [\App\Http\Controllers\UnderwritingController::class, 'declineOverride'])
+        ->name('underwriting.decline-override');
+    
     // Loans
     Route::get('/loans', [\App\Http\Controllers\Web\LoanController::class, 'index'])
         ->name('loans.index');

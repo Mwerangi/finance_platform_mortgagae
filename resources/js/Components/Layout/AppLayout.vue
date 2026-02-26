@@ -60,6 +60,22 @@
               </ul>
             </li>
 
+            <!-- Underwriting Dropdown -->
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" role="button" 
+                 data-bs-toggle="dropdown" :class="{ active: $page.url.startsWith('/underwriting') }">
+                <i class="bi bi-clipboard-check me-1"></i>Underwriting
+              </a>
+              <ul class="dropdown-menu">
+                <li><Link class="dropdown-item" href="/underwriting/pending-reviews">
+                  <i class="bi bi-eye me-2"></i>Pending Reviews
+                </Link></li>
+                <li><Link class="dropdown-item" href="/underwriting/pending-approvals">
+                  <i class="bi bi-check-circle me-2"></i>Pending Approvals
+                </Link></li>
+              </ul>
+            </li>
+
             <!-- Loans Dropdown -->
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" role="button" 

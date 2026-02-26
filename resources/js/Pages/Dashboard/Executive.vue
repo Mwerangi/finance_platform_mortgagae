@@ -54,6 +54,23 @@
             </a>
           </div>
 
+          <!-- Underwriting -->
+          <div class="col-md-3 col-sm-6">
+            <a href="/underwriting/pending-reviews" class="text-decoration-none">
+              <div class="d-flex align-items-center p-3 bg-light rounded hover-shadow transition">
+                <div class="flex-shrink-0 me-3">
+                  <div class="icon-circle bg-primary bg-opacity-10">
+                    <i class="bi bi-clipboard-check text-primary fs-4"></i>
+                  </div>
+                </div>
+                <div>
+                  <div class="fw-semibold text-dark">Underwriting</div>
+                  <small class="text-muted">Review decisions</small>
+                </div>
+              </div>
+            </a>
+          </div>
+
           <!-- Customers -->
           <div class="col-md-3 col-sm-6">
             <a href="/customers" class="text-decoration-none">
