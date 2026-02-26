@@ -1,5 +1,8 @@
 <template>
-  <AppLayout breadcrumb="Applications / Create">
+  <AppLayout :breadcrumb="[
+    { label: 'Applications', href: '/applications' },
+    { label: 'Create New Application' }
+  ]">
     <div class="row">
       <div class="col-lg-10 mx-auto">
         <!-- Page Header -->

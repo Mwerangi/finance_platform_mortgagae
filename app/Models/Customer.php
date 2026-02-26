@@ -194,10 +194,13 @@ class Customer extends Model
         $basicFields = [
             'first_name' => 5,
             'last_name' => 5,
+            'middle_name' => 2,
             'date_of_birth' => 3,
             'gender' => 2,
             'national_id' => 5,
             'marital_status' => 2,
+            'tin' => 3,
+            'passport_number' => 3,
         ];
         
         foreach ($basicFields as $field => $points) {

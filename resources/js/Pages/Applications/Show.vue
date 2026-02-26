@@ -1,5 +1,8 @@
 <template>
-  <AppLayout breadcrumb="Applications / Details">
+  <AppLayout :breadcrumb="[
+    { label: 'Applications', href: '/applications' },
+    { label: application.application_number }
+  ]">
     <div class="row">
       <div class="col-lg-10 mx-auto">
         <!-- Page Header -->
@@ -44,15 +47,15 @@
               <i class="bi bi-x-circle me-1"></i>Reject
             </button>
             <Link
-              v-if="application.status === 'approved' && !application.latest_loan"
+              v-if="application.status === 'approved' && !application.latestLoan"
               :href="`/applications/${application.id}/disburse`"
               class="btn btn-success"
             >
               <i class="bi bi-cash-stack me-1"></i>Disburse Loan
             </Link>
             <Link
-              v-if="application.latest_loan"
-              :href="`/loans/${application.latest_loan.id}`"
+              v-if="application.latestLoan"
+              :href="`/loans/${application.latestLoan.id}`"
               class="btn btn-outline-primary"
             >
               <i class="bi bi-eye me-1"></i>View Loan
@@ -79,7 +82,7 @@
           <!-- Left Column -->
           <div class="col-lg-7">
             <!-- Customer Information -->
-            <Card title="Customer Information" class="mb-4">
+            <Card header="Customer Information" class="mb-4">
               <div class="d-flex align-items-center mb-3">
                 <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" 
                      style="width: 60px; height: 60px;">
@@ -117,7 +120,7 @@
             </Card>
 
             <!-- Loan Product Information -->
-            <Card title="Loan Product" class="mb-4">
+            <Card header="Loan Product" class="mb-4">
               <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                   <h5 class="mb-1">{{ application.loan_product.name }}</h5>
@@ -149,7 +152,7 @@
             </Card>
 
             <!-- Property Information -->
-            <Card title="Property Information" class="mb-4">
+            <Card header="Property Information" class="mb-4">
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="text-muted small d-block mb-1">Property Type</label>
@@ -171,7 +174,7 @@
             </Card>
 
             <!-- Notes -->
-            <Card v-if="application.notes" title="Notes" class="mb-4">
+            <Card v-if="application.notes" header="Notes" class="mb-4">
               <p class="mb-0">{{ application.notes }}</p>
             </Card>
           </div>
@@ -179,7 +182,7 @@
           <!-- Right Column -->
           <div class="col-lg-5">
             <!-- Application Summary -->
-            <Card title="Application Summary" class="mb-4">
+            <Card header="Application Summary" class="mb-4">
               <div class="mb-3">
                 <label class="text-muted small d-block mb-1">Requested Amount</label>
                 <h3 class="mb-0">{{ formatCurrency(application.requested_amount) }}</h3>
@@ -197,7 +200,7 @@
             </Card>
 
             <!-- Timeline -->
-            <Card title="Application Timeline" class="mb-4">
+            <Card header="Application Timeline" class="mb-4">
               <div class="timeline">
                 <div v-if="application.created_at" class="timeline-item">
                   <div class="timeline-marker bg-primary"></div>
@@ -242,7 +245,7 @@
             </Card>
 
             <!-- Underwriting Decision -->
-            <Card v-if="latestUnderwriting" title="Underwriting Decision" class="mb-4">
+            <Card v-if="latestUnderwriting" header="Underwriting Decision" class="mb-4">
               <div class="mb-3">
                 <label class="text-muted small d-block mb-1">Decision</label>
                 <Badge :variant="getDecisionVariant(latestUnderwriting.decision_status)">
@@ -260,22 +263,376 @@
             </Card>
           </div>
         </div>
+
+        <!-- Eligibility Assessment Report - Full Width -->
+        <div class="row" v-if="latestEligibility">
+          <div class="col-12">
+            <Card header="Eligibility Assessment" class="mb-4">
+              <div class="alert mb-3" :class="{
+                'alert-success': latestEligibility.system_decision === 'approved',
+                'alert-danger': latestEligibility.system_decision === 'rejected',
+                'alert-warning': latestEligibility.system_decision === 'conditional'
+              }">
+                <div class="d-flex align-items-center">
+                  <i class="bi fs-4 me-2" :class="{
+                    'bi-check-circle-fill': latestEligibility.system_decision === 'approved',
+                    'bi-x-circle-fill': latestEligibility.system_decision === 'rejected',
+                    'bi-exclamation-triangle-fill': latestEligibility.system_decision === 'conditional'
+                  }"></i>
+                  <div>
+                    <strong>System Decision: {{ latestEligibility.system_decision?.toUpperCase() }}</strong>
+                    <div v-if="latestEligibility.decision_reason" class="small">{{ latestEligibility.decision_reason }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Key Metrics -->
+              <div class="row g-3 mb-4">
+                <div class="col-md-6 col-lg-3">
+                  <div class="border rounded p-3 h-100">
+                    <label class="text-muted small d-block mb-1">Monthly Income</label>
+                    <div class="fw-bold fs-5">{{ formatCurrency(latestEligibility.net_monthly_income) }}</div>
+                    <small class="text-muted">Net Monthly</small>
+                  </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                  <div class="border rounded p-3 h-100">
+                    <label class="text-muted small d-block mb-1">Monthly Debt</label>
+                    <div class="fw-bold fs-5">{{ formatCurrency(latestEligibility.total_monthly_debt) }}</div>
+                    <small class="text-muted">{{ latestEligibility.detected_debt_count }} debts detected</small>
+                  </div>
+                </div>
+                <div class="col-md-4 col-lg-2">
+                  <div class="border rounded p-3 h-100">
+                    <label class="text-muted small d-block mb-1">DTI Ratio</label>
+                    <div class="fw-bold fs-5" :class="{
+                      'text-success': latestEligibility.dti_ratio <= 40,
+                      'text-warning': latestEligibility.dti_ratio > 40 && latestEligibility.dti_ratio <= 50,
+                      'text-danger': latestEligibility.dti_ratio > 50
+                    }">{{ latestEligibility.dti_ratio }}%</div>
+                  </div>
+                </div>
+                <div class="col-md-4 col-lg-2">
+                  <div class="border rounded p-3 h-100">
+                    <label class="text-muted small d-block mb-1">DSR Ratio</label>
+                    <div class="fw-bold fs-5" :class="{
+                      'text-success': latestEligibility.dsr_ratio <= 40,
+                      'text-warning': latestEligibility.dsr_ratio > 40 && latestEligibility.dsr_ratio <= 50,
+                      'text-danger': latestEligibility.dsr_ratio > 50
+                    }">{{ latestEligibility.dsr_ratio }}%</div>
+                  </div>
+                </div>
+                <div class="col-md-4 col-lg-2">
+                  <div class="border rounded p-3 h-100">
+                    <label class="text-muted small d-block mb-1">LTV Ratio</label>
+                    <div class="fw-bold fs-5" :class="{
+                      'text-success': latestEligibility.ltv_ratio <= 80,
+                      'text-warning': latestEligibility.ltv_ratio > 80 && latestEligibility.ltv_ratio <= 90,
+                      'text-danger': latestEligibility.ltv_ratio > 90
+                    }">{{ latestEligibility.ltv_ratio }}%</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Loan Affordability -->
+              <div class="mb-4">
+                <h6 class="mb-3">Loan Affordability Analysis</h6>
+                <div class="row g-3">
+                  <div class="col-md-6 col-lg-3">
+                    <label class="text-muted small d-block mb-1">Proposed Monthly Installment</label>
+                    <div class="fw-bold">{{ formatCurrency(latestEligibility.proposed_installment) }}</div>
+                  </div>
+                  <div class="col-md-6 col-lg-3">
+                    <label class="text-muted small d-block mb-1">Net Surplus After Loan</label>
+                    <div class="fw-bold" :class="{
+                      'text-success': latestEligibility.net_surplus_after_loan > 0,
+                      'text-danger': latestEligibility.net_surplus_after_loan <= 0
+                    }">{{ formatCurrency(latestEligibility.net_surplus_after_loan) }}</div>
+                  </div>
+                  <div class="col-md-6 col-lg-3">
+                    <label class="text-muted small d-block mb-1">Max Loan from Affordability</label>
+                    <div class="fw-bold">{{ formatCurrency(latestEligibility.max_loan_from_affordability) }}</div>
+                  </div>
+                  <div class="col-md-6 col-lg-3">
+                    <label class="text-muted small d-block mb-1">Max Loan from LTV</label>
+                    <div class="fw-bold">{{ formatCurrency(latestEligibility.max_loan_from_ltv) }}</div>
+                  </div>
+                  <div class="col-12">
+                    <div class="alert alert-info mb-0">
+                      <strong>Final Maximum Loan:</strong> {{ formatCurrency(latestEligibility.final_max_loan) }}
+                      <span v-if="latestEligibility.optimal_tenure_months"> • Optimal Tenure: {{ latestEligibility.optimal_tenure_months }} months</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Risk Assessment -->
+              <div class="mb-4" v-if="latestEligibility.risk_grade || latestEligibility.risk_score">
+                <h6 class="mb-3">Risk Assessment</h6>
+                <div class="row g-3">
+                  <div class="col-md-6" v-if="latestEligibility.risk_grade">
+                    <label class="text-muted small d-block mb-1">Risk Grade</label>
+                    <Badge :variant="getRiskGradeVariant(latestEligibility.risk_grade)" class="fs-6">
+                      {{ latestEligibility.risk_grade }}
+                    </Badge>
+                  </div>
+                  <div class="col-md-6" v-if="latestEligibility.risk_score">
+                    <label class="text-muted small d-block mb-1">Risk Score</label>
+                    <div class="fw-bold">{{ latestEligibility.risk_score }}</div>
+                  </div>
+                  <div class="col-12" v-if="latestEligibility.risk_factors && latestEligibility.risk_factors.length">
+                    <label class="text-muted small d-block mb-2">Risk Factors:</label>
+                    <div class="d-flex flex-wrap gap-2">
+                      <Badge v-for="(factor, index) in latestEligibility.risk_factors" :key="index" variant="warning">
+                        {{ formatRiskFactor(factor) }}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Policy Breaches -->
+              <div class="mb-4" v-if="latestEligibility.policy_breaches && latestEligibility.policy_breaches.length">
+                <h6 class="mb-3">
+                  <i class="bi bi-shield-exclamation me-2"></i>Policy Breaches
+                </h6>
+                <div class="alert alert-danger">
+                  <div v-for="(breach, index) in latestEligibility.policy_breaches" :key="index" 
+                       class="mb-3 pb-3" 
+                       :class="{ 'border-bottom': index < latestEligibility.policy_breaches.length - 1 }">
+                    <div class="row align-items-center">
+                      <div class="col-md-5">
+                        <h6 class="text-danger mb-1">
+                          <i class="bi bi-x-circle me-1"></i>{{ formatPolicyRule(breach.rule) }}
+                        </h6>
+                      </div>
+                      <div class="col-md-7" v-if="breach.threshold && breach.actual">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <div>
+                            <small class="text-muted d-block">Required Threshold</small>
+                            <strong>{{ formatThreshold(breach.rule, breach.threshold) }}</strong>
+                          </div>
+                          <div class="text-end">
+                            <small class="text-muted d-block">Actual Value</small>
+                            <strong class="text-danger">{{ formatThreshold(breach.rule, breach.actual) }}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Conditions -->
+              <div class="mb-4" v-if="latestEligibility.conditions && latestEligibility.conditions.length">
+                <h6 class="mb-3">
+                  <i class="bi bi-info-circle me-2"></i>Approval Conditions
+                </h6>
+                <div class="alert alert-warning">
+                  <div v-for="(condition, index) in latestEligibility.conditions" :key="index" 
+                       class="mb-3 pb-3" 
+                       :class="{ 'border-bottom': index < latestEligibility.conditions.length - 1 }">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <h6 class="text-dark mb-0">
+                        <i class="bi bi-dot"></i>{{ formatConditionTitle(condition.condition) }}
+                      </h6>
+                      <Badge v-if="condition.severity" :variant="getSeverityBadgeClass(condition.severity)">
+                        {{ condition.severity.toUpperCase() }}
+                      </Badge>
+                    </div>
+                    <p v-if="condition.recommendation" class="text-muted mb-0 ms-3">
+                      <i class="bi bi-arrow-right-short"></i>
+                      <strong>Recommendation:</strong> {{ condition.recommendation }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Assessment Info -->
+              <div class="border-top pt-3 mt-3">
+                <div class="row g-2 small text-muted">
+                  <div class="col-md-6 col-lg-3" v-if="latestEligibility.assessed_at">
+                    <i class="bi bi-calendar-event me-1"></i>
+                    Assessed: {{ formatDateTime(latestEligibility.assessed_at) }}
+                  </div>
+                  <div class="col-md-6 col-lg-3" v-if="latestEligibility.assessor">
+                    <i class="bi bi-person me-1"></i>
+                    By: {{ latestEligibility.assessor.name }}
+                  </div>
+                  <div class="col-md-6 col-lg-3" v-if="latestEligibility.income_classification">
+                    <i class="bi bi-briefcase me-1"></i>
+                    Income Type: {{ latestEligibility.income_classification }}
+                  </div>
+                  <div class="col-md-6 col-lg-3" v-if="latestEligibility.assessment_version">
+                    <i class="bi bi-code-square me-1"></i>
+                    Version: {{ latestEligibility.assessment_version }}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Approve Confirmation Modal -->
+    <div 
+      class="modal fade" 
+      :class="{ 'show d-block': showApproveModal }" 
+      tabindex="-1" 
+      style="background-color: rgba(0,0,0,0.5);"
+      v-if="showApproveModal"
+      @click.self="showApproveModal = false"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-success text-white">
+            <h5 class="modal-title">
+              <i class="bi bi-check-circle me-2"></i>Approve Application
+            </h5>
+            <button type="button" class="btn-close btn-close-white" @click="showApproveModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-info mb-3">
+              <div><strong>Application:</strong> {{ application.application_number }}</div>
+              <div><strong>Customer:</strong> {{ application.customer.full_name }}</div>
+              <div><strong>Amount:</strong> {{ formatCurrency(application.requested_amount) }}</div>
+            </div>
+            
+            <p class="mb-3">Are you sure you want to approve this loan application?</p>
+            
+            <div class="bg-light p-3 rounded mb-3">
+              <h6 class="mb-2">This will:</h6>
+              <ul class="mb-0">
+                <li>Mark the application as <strong class="text-success">Approved</strong></li>
+                <li>Allow the application to proceed to loan disbursement</li>
+                <li>Record your approval decision in the system</li>
+                <li>Notify relevant parties of the approval</li>
+              </ul>
+            </div>
+            
+            <div class="alert alert-warning mb-0">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              <strong>Note:</strong> Please ensure all underwriting checks and KYC verification are complete before approving.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button 
+              type="button" 
+              class="btn btn-secondary" 
+              @click="showApproveModal = false"
+              :disabled="approving"
+            >
+              <i class="bi bi-x-circle me-1"></i>Cancel
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-success" 
+              @click="confirmApprove"
+              :disabled="approving"
+            >
+              <span v-if="approving" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-check-circle me-1"></i>
+              {{ approving ? 'Approving...' : 'Yes, Approve Application' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reject Confirmation Modal -->
+    <div 
+      class="modal fade" 
+      :class="{ 'show d-block': showRejectModal }" 
+      tabindex="-1" 
+      style="background-color: rgba(0,0,0,0.5);"
+      v-if="showRejectModal"
+      @click.self="showRejectModal = false"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">
+              <i class="bi bi-x-circle me-2"></i>Reject Application
+            </h5>
+            <button type="button" class="btn-close btn-close-white" @click="showRejectModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-info mb-3">
+              <div><strong>Application:</strong> {{ application.application_number }}</div>
+              <div><strong>Customer:</strong> {{ application.customer.full_name }}</div>
+              <div><strong>Amount:</strong> {{ formatCurrency(application.requested_amount) }}</div>
+            </div>
+            
+            <p class="mb-3">Please provide a detailed reason for rejecting this application:</p>
+            
+            <div class="mb-3">
+              <label class="form-label">Rejection Reason <span class="text-danger">*</span></label>
+              <textarea 
+                v-model="rejectForm.notes"
+                class="form-control" 
+                :class="{ 'is-invalid': rejectErrors.notes }"
+                rows="4"
+                placeholder="Explain why this application is being rejected (minimum 10 characters)..."
+                required
+              ></textarea>
+              <small class="text-muted">Minimum 10 characters required</small>
+              <div v-if="rejectErrors.notes" class="invalid-feedback">
+                {{ rejectErrors.notes[0] }}
+              </div>
+            </div>
+            
+            <div class="alert alert-warning mb-0">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              <strong>Warning:</strong> This action will reject the application and the customer will need to reapply.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button 
+              type="button" 
+              class="btn btn-secondary" 
+              @click="showRejectModal = false"
+              :disabled="rejecting"
+            >
+              <i class="bi bi-arrow-left me-1"></i>Cancel
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-danger" 
+              @click="confirmReject"
+              :disabled="rejecting || !rejectForm.notes || rejectForm.notes.length < 10"
+            >
+              <span v-if="rejecting" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-x-circle me-1"></i>
+              {{ rejecting ? 'Rejecting...' : 'Reject Application' }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
+import { ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Components/Layout/AppLayout.vue';
 import Card from '@/Components/UI/Card.vue';
 import Badge from '@/Components/UI/Badge.vue';
 
-defineProps({
+const props = defineProps({
   application: Object,
   latestUnderwriting: Object,
+  latestEligibility: Object,
   canApprove: Boolean
 });
+
+const showApproveModal = ref(false);
+const showRejectModal = ref(false);
+const approving = ref(false);
+const rejecting = ref(false);
+const rejectForm = ref({ notes: '' });
+const rejectErrors = ref({});
 
 const getInitials = (customer) => {
   const first = customer.first_name?.[0] || '';
@@ -306,6 +663,14 @@ const getDecisionVariant = (decision) => {
   return variants[decision] || 'secondary';
 };
 
+const getRiskGradeVariant = (grade) => {
+  const lowerGrade = grade?.toLowerCase() || '';
+  if (lowerGrade.includes('a') || lowerGrade.includes('low')) return 'success';
+  if (lowerGrade.includes('b') || lowerGrade.includes('medium')) return 'warning';
+  if (lowerGrade.includes('c') || lowerGrade.includes('high')) return 'danger';
+  return 'secondary';
+};
+
 const formatStatus = (status) => {
   return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 };
@@ -330,6 +695,95 @@ const formatDate = (date) => {
   });
 };
 
+// Format risk factor from snake_case to human readable
+const formatRiskFactor = (factor) => {
+  // Handle both string and object formats
+  const factorKey = typeof factor === 'string' ? factor : (factor?.factor || factor?.name || factor?.type || '');
+  
+  const factors = {
+    'high_dti': 'High Debt-to-Income Ratio',
+    'high_dsr': 'High Debt Service Ratio',
+    'unstable_income': 'Unstable Income Pattern',
+    'high_volatility': 'High Cash Flow Volatility',
+    'high_cash_flow_volatility': 'High Cash Flow Volatility',
+    'low_income': 'Low Monthly Income',
+    'irregular_deposits': 'Irregular Deposit Pattern',
+    'high_bounce_rate': 'High Transaction Bounce Rate',
+    'bounced_transactions_detected': 'Bounced Transactions Detected',
+    'low_balance': 'Low Account Balance',
+    'negative_balance_days': 'Negative Balance Days Detected',
+    'new_account': 'New Bank Account',
+    'insufficient_transaction_history': 'Insufficient Transaction History',
+    'high_loan_to_value': 'High Loan-to-Value Ratio',
+    'insufficient_collateral': 'Insufficient Collateral',
+  };
+  
+  if (!factorKey) return 'Unknown Factor';
+  return factors[factorKey] || factorKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
+// Format policy rule from snake_case to human readable
+const formatPolicyRule = (rule) => {
+  // Handle both string and object formats
+  const ruleKey = typeof rule === 'string' ? rule : (rule?.rule || rule?.name || '');
+  
+  const rules = {
+    'max_dti_exceeded': 'Debt-to-Income Ratio Exceeded',
+    'max_dsr_exceeded': 'Debt Service Ratio Exceeded',
+    'insufficient_surplus': 'Insufficient Monthly Surplus',
+    'ltv_exceeded': 'Loan-to-Value Ratio Exceeded',
+    'min_income_not_met': 'Minimum Income Requirement Not Met',
+    'max_tenure_exceeded': 'Maximum Tenure Exceeded',
+    'high_risk_grade': 'High Risk Grade',
+    'negative_cash_flow': 'Negative Cash Flow Detected',
+  };
+  
+  if (!ruleKey) return 'Unknown Rule';
+  return rules[ruleKey] || ruleKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
+// Format condition title from snake_case to human readable
+const formatConditionTitle = (condition) => {
+  // Handle both string and object formats
+  const conditionKey = typeof condition === 'string' ? condition : (condition?.condition || condition?.name || '');
+  
+  const titles = {
+    'low_income_stability': 'Low Income Stability',
+    'high_cash_flow_volatility': 'High Cash Flow Volatility',
+    'insufficient_collateral': 'Insufficient Collateral',
+    'high_debt_burden': 'High Debt Burden',
+    'low_credit_history': 'Low Credit History',
+    'bounced_transactions_detected': 'Bounced Transactions Detected',
+    'require_guarantor': 'Guarantor Required',
+    'additional_documentation_required': 'Additional Documentation Required',
+  };
+  
+  if (!conditionKey) return 'Unknown Condition';
+  return titles[conditionKey] || conditionKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
+// Format threshold values based on rule type
+const formatThreshold = (rule, value) => {
+  if (rule.includes('dti') || rule.includes('dsr') || rule.includes('ltv')) {
+    return `${parseFloat(value).toFixed(2)}%`;
+  } else if (rule.includes('surplus') || rule.includes('income') || rule.includes('amount')) {
+    return `TZS ${Number(value).toLocaleString()}`;
+  } else if (rule.includes('tenure')) {
+    return `${value} months`;
+  }
+  return value;
+};
+
+// Get severity badge class
+const getSeverityBadgeClass = (severity) => {
+  const classes = {
+    'high': 'danger',
+    'medium': 'warning',
+    'low': 'info',
+  };
+  return classes[severity] || 'secondary';
+};
+
 const formatDateTime = (date) => {
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -352,16 +806,48 @@ const startReview = () => {
 };
 
 const approveApplication = () => {
-  if (confirm('Approve this application? This action will allow the application to proceed to loan disbursement.')) {
-    router.post(`/applications/${props.application.id}/approve`);
-  }
+  showApproveModal.value = true;
+};
+
+const confirmApprove = () => {
+  approving.value = true;
+  router.post(`/applications/${props.application.id}/approve`, {}, {
+    onFinish: () => {
+      approving.value = false;
+      showApproveModal.value = false;
+    }
+  });
 };
 
 const rejectApplication = () => {
-  const notes = prompt('Reason for rejection:');
-  if (notes !== null) {
-    router.post(`/applications/${props.application.id}/reject`, { notes });
+  rejectForm.value.notes = '';
+  rejectErrors.value = {};
+  showRejectModal.value = true;
+};
+
+const confirmReject = () => {
+  if (!rejectForm.value.notes || rejectForm.value.notes.length < 10) {
+    rejectErrors.value = {
+      notes: ['Rejection reason must be at least 10 characters']
+    };
+    return;
   }
+  
+  rejecting.value = true;
+  rejectErrors.value = {};
+  
+  router.post(`/applications/${props.application.id}/reject`, rejectForm.value, {
+    onError: (errors) => {
+      rejectErrors.value = errors;
+    },
+    onFinish: () => {
+      rejecting.value = false;
+    },
+    onSuccess: () => {
+      showRejectModal.value = false;
+      rejectForm.value.notes = '';
+    }
+  });
 };
 </script>
 

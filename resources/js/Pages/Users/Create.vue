@@ -1,5 +1,8 @@
 <template>
-  <AppLayout breadcrumb="Create User">
+  <AppLayout :breadcrumb="[
+    { label: 'Users', href: '/users' },
+    { label: 'Create New User' }
+  ]">
     <div class="row justify-content-center">
       <div class="col-lg-8">
         <!-- Page Header -->

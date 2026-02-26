@@ -136,7 +136,14 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     });
 
     // Applications
-    Route::apiResource('applications', \App\Http\Controllers\ApplicationController::class);
+    Route::apiResource('applications', \App\Http\Controllers\ApplicationController::class)
+        ->names([
+            'index' => 'api.applications.index',
+            'store' => 'api.applications.store',
+            'show' => 'api.applications.show',
+            'update' => 'api.applications.update',
+            'destroy' => 'api.applications.destroy',
+        ]);
     Route::prefix('applications/{application}')->group(function () {
         Route::post('/submit', [\App\Http\Controllers\ApplicationController::class, 'submit']);
         

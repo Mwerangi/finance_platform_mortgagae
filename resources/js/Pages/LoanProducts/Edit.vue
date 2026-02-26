@@ -1,5 +1,8 @@
 <template>
-  <AppLayout breadcrumb="Loan Products / Edit">
+  <AppLayout :breadcrumb="[
+    { label: 'Loan Products', href: '/loan-products' },
+    { label: 'Edit' }
+  ]">
     <div class="row">
       <div class="col-lg-10 mx-auto">
         <!-- Page Header -->

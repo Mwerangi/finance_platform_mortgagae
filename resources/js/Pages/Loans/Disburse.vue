@@ -46,7 +46,11 @@ const submit = () => {
 </script>
 
 <template>
-    <AppLayout title="Disburse Loan">
+    <AppLayout title="Disburse Loan" :breadcrumb="[
+        { label: 'Applications', href: '/applications' },
+        { label: application.application_number, href: `/applications/${application.id}` },
+        { label: 'Disburse Loan' }
+    ]">
         <div class="container-fluid py-4">
             <!-- Page Header -->
             <div class="row mb-4">

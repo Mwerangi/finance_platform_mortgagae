@@ -437,6 +437,9 @@ class Loan extends Model
             'total_outstanding' => $this->total_repayment,
             'installments_remaining' => $this->approved_tenure_months,
         ]);
+
+        // Generate loan schedule automatically
+        $this->generateSchedule();
     }
 
     /**
@@ -603,5 +606,58 @@ class Loan extends Model
             return false;
         }
         return now()->greaterThan($this->insurance_expiry_date);
+    }
+
+    /**
+     * Generate and save loan repayment schedule
+     */
+    public function generateSchedule(): void
+    {
+        // Don't generate if already has schedules
+        if ($this->schedules()->count() > 0) {
+            return;
+        }
+
+        // Validate required fields
+        if (!$this->first_installment_date || !$this->approved_amount || !$this->approved_tenure_months) {
+            throw new \Exception('Cannot generate schedule: missing required loan data');
+        }
+
+        $scheduleService = app(\App\Services\LoanScheduleService::class);
+        
+        $scheduleData = $scheduleService->generateSchedule(
+            loanId: $this->id,
+            principal: $this->approved_amount,
+            annualRate: $this->approved_interest_rate,
+            termMonths: $this->approved_tenure_months,
+            calculationMethod: $this->interest_method ?? 'reducing_balance',
+            startDate: \Carbon\Carbon::parse($this->first_installment_date)->subMonth()
+        );
+
+        // Save schedules to database
+        foreach ($scheduleData as $installment) {
+            LoanSchedule::create([
+                'loan_id' => $this->id,
+                'institution_id' => $this->institution_id,
+                'installment_number' => $installment['installment_number'],
+                'due_date' => $installment['due_date'],
+                'status' => 'pending',
+                'principal_due' => $installment['principal_due'],
+                'interest_due' => $installment['interest_due'],
+                'total_due' => $installment['total_due'],
+                'penalties_due' => 0,
+                'fees_due' => 0,
+                'opening_balance' => $installment['installment_number'] == 1 
+                    ? $this->approved_amount 
+                    : $scheduleData[$installment['installment_number'] - 2]['balance_after_payment'],
+                'closing_balance' => $installment['balance_after_payment'],
+                'principal_paid' => 0,
+                'interest_paid' => 0,
+                'penalties_paid' => 0,
+                'fees_paid' => 0,
+                'total_paid' => 0,
+                'balance_remaining' => $installment['total_due'],
+            ]);
+        }
     }
 }

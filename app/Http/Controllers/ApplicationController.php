@@ -145,15 +145,27 @@ class ApplicationController extends Controller
             'reviewer',
             'approver',
             'latestUnderwritingDecision',
-            'latestLoan'
+            'latestLoan',
+            'eligibilityAssessments' => function($query) {
+                $query->latest()->with(['assessor', 'statementAnalytics']);
+            }
         ]);
 
-        // Check if user can approve
-        $canApprove = $request->user()->hasAnyRole(['institution-admin', 'provider-super-admin']);
+        // Get the latest eligibility assessment
+        $latestEligibility = $application->eligibilityAssessments->first();
+
+        // Check if user can approve/reject applications
+        $canApprove = $request->user()->hasAnyRole([
+            'provider-super-admin',
+            'institution-admin',
+            'credit-manager',
+            'supervisor'
+        ]);
 
         return Inertia::render('Applications/Show', [
             'application' => $application,
             'latestUnderwriting' => $application->latestUnderwritingDecision,
+            'latestEligibility' => $latestEligibility,
             'canApprove' => $canApprove
         ]);
     }
@@ -269,13 +281,19 @@ class ApplicationController extends Controller
      */
     public function approve(Application $application)
     {
+        // Check authorization
+        $user = auth()->user();
+        if (!$user->hasAnyRole(['provider-super-admin', 'institution-admin', 'credit-manager', 'supervisor'])) {
+            abort(403, 'You do not have permission to approve applications.');
+        }
+
         if ($application->status !== ApplicationStatus::UNDER_REVIEW) {
             return back()->with('error', 'Application must be under review to approve');
         }
 
-        $application->approve(auth()->id());
+        $application->approve($user->id);
 
-        return back()->with('success', 'Application approved successfully');
+        return back()->with('success', 'Application approved successfully. You can now proceed to disburse the loan.');
     }
 
     /**
@@ -283,16 +301,25 @@ class ApplicationController extends Controller
      */
     public function reject(Request $request, Application $application)
     {
+        // Check authorization
+        $user = auth()->user();
+        if (!$user->hasAnyRole(['provider-super-admin', 'institution-admin', 'credit-manager', 'supervisor'])) {
+            abort(403, 'You do not have permission to reject applications.');
+        }
+
         $request->validate([
-            'notes' => 'required|string|max:1000'
+            'notes' => 'required|string|min:10|max:1000'
+        ], [
+            'notes.required' => 'Please provide a reason for rejection',
+            'notes.min' => 'Rejection reason must be at least 10 characters',
         ]);
 
         if ($application->status !== ApplicationStatus::UNDER_REVIEW) {
             return back()->with('error', 'Application must be under review to reject');
         }
 
-        $application->reject(auth()->id(), $request->notes);
+        $application->reject($user->id, $request->notes);
 
-        return back()->with('success', 'Application rejected');
+        return back()->with('success', 'Application rejected successfully.');
     }
 }

@@ -8,13 +8,19 @@ import Badge from '@/Components/UI/Badge.vue';
 const props = defineProps({
     loan: Object,
     canDisburse: Boolean,
-    canWriteOff: Boolean
+    canWriteOff: Boolean,
+    nextInstallment: Object
 });
 
 const showActivateModal = ref(false);
 const showWriteOffModal = ref(false);
 const showDefaultModal = ref(false);
 const showCloseModal = ref(false);
+const showPaymentModal = ref(false);
+
+// Pagination for installment schedule
+const currentPage = ref(1);
+const perPage = 7;
 
 const activateForm = useForm({
     activation_date: new Date().toISOString().split('T')[0],
@@ -33,6 +39,30 @@ const defaultForm = useForm({
 const closeForm = useForm({
     reason: ''
 });
+
+const paymentForm = useForm({
+    payment_date: new Date().toISOString().split('T')[0],
+    amount: '',
+    payment_method: 'cash',
+    reference_number: '',
+    notes: ''
+});
+
+// Auto-populate amount when modal opens
+const openPaymentModal = () => {
+    if (props.nextInstallment) {
+        paymentForm.amount = props.nextInstallment.balance_remaining;
+    } else {
+        // If no schedules, suggest a reasonable amount based on tenure
+        // This helps users but doesn't enforce it
+        if (props.loan.tenure_months > 0 && props.loan.total_outstanding > 0) {
+            paymentForm.amount = Math.round(props.loan.total_outstanding / props.loan.tenure_months);
+        } else {
+            paymentForm.amount = '';
+        }
+    }
+    showPaymentModal.value = true;
+};
 
 const getStatusVariant = (status) => {
     const variants = {
@@ -136,10 +166,120 @@ const submitClose = () => {
         }
     });
 };
+
+const submitPayment = () => {
+    paymentForm.post(`/loans/${props.loan.id}/add-payment`, {
+        onSuccess: () => {
+            showPaymentModal.value = false;
+            paymentForm.reset();
+            paymentForm.payment_date = new Date().toISOString().split('T')[0];
+            paymentForm.payment_method = 'cash';
+        }
+    });
+};
+
+// Installment schedule helper functions
+const getInstallmentStatusVariant = (status) => {
+    const variants = {
+        'pending': 'warning',
+        'partially_paid': 'info',
+        'paid': 'success',
+        'overdue': 'danger'
+    };
+    return variants[status] || 'secondary';
+};
+
+const formatInstallmentStatus = (status) => {
+    const statuses = {
+        'pending': 'Pending',
+        'partially_paid': 'Partial',
+        'paid': 'Paid',
+        'overdue': 'Overdue'
+    };
+    return statuses[status] || status;
+};
+
+const isUpcoming = (dueDate) => {
+    const due = new Date(dueDate);
+    const today = new Date();
+    const daysUntilDue = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+    return daysUntilDue >= 0 && daysUntilDue <= 7;
+};
+
+const isOverdue = (installment) => {
+    return installment.status === 'overdue' || installment.days_past_due > 0;
+};
+
+const getPaymentProgress = (installment) => {
+    if (installment.total_due === 0) return 0;
+    return Math.round((installment.total_paid / installment.total_due) * 100);
+};
+
+const getProgressBarClass = (installment) => {
+    const progress = getPaymentProgress(installment);
+    if (progress === 100) return 'bg-success';
+    if (progress > 0) return 'bg-info';
+    if (installment.status === 'overdue') return 'bg-danger';
+    return 'bg-warning';
+};
+
+const getTotalPrincipal = () => {
+    return props.loan.schedules?.reduce((sum, s) => sum + parseFloat(s.principal_due || 0), 0) || 0;
+};
+
+const getTotalInterest = () => {
+    return props.loan.schedules?.reduce((sum, s) => sum + parseFloat(s.interest_due || 0), 0) || 0;
+};
+
+const getTotalDue = () => {
+    return props.loan.schedules?.reduce((sum, s) => sum + parseFloat(s.total_due || 0), 0) || 0;
+};
+
+const getTotalPaid = () => {
+    return props.loan.schedules?.reduce((sum, s) => sum + parseFloat(s.total_paid || 0), 0) || 0;
+};
+
+const getTotalBalance = () => {
+    return props.loan.schedules?.reduce((sum, s) => sum + parseFloat(s.balance_remaining || 0), 0) || 0;
+};
+
+// Pagination helper functions
+const getPaginatedSchedules = () => {
+    if (!props.loan.schedules) return [];
+    const start = (currentPage.value - 1) * perPage;
+    const end = start + perPage;
+    return props.loan.schedules.slice(start, end);
+};
+
+const getTotalPages = () => {
+    if (!props.loan.schedules) return 0;
+    return Math.ceil(props.loan.schedules.length / perPage);
+};
+
+const goToPage = (page) => {
+    if (page >= 1 && page <= getTotalPages()) {
+        currentPage.value = page;
+    }
+};
+
+const nextPage = () => {
+    if (currentPage.value < getTotalPages()) {
+        currentPage.value++;
+    }
+};
+
+const prevPage = () => {
+    if (currentPage.value > 1) {
+        currentPage.value--;
+    }
+};
 </script>
 
 <template>
-    <AppLayout title="Loan Details">
+    <AppLayout title="Loan Details" :breadcrumb="[
+        { label: 'Loans', href: '/loans' },
+        { label: loan.loan_account_number }
+    ]">
         <div class="container-fluid py-4">
             <!-- Page Header -->
             <div class="row mb-4">
@@ -366,10 +506,153 @@ const submitClose = () => {
                         </div>
                     </Card>
 
+                    <!-- Repayment Schedule -->
+                    <Card v-if="loan.schedules && loan.schedules.length > 0" class="mb-3">
+                        <template #header>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Repayment Schedule</h5>
+                                <div class="text-muted small">
+                                    <span class="me-3">
+                                        <i class="bi bi-check-circle text-success"></i>
+                                        {{ loan.schedules.filter(s => s.status === 'paid').length }} Paid
+                                    </span>
+                                    <span class="me-3">
+                                        <i class="bi bi-clock text-warning"></i>
+                                        {{ loan.schedules.filter(s => s.status === 'pending' || s.status === 'partially_paid').length }} Pending
+                                    </span>
+                                    <span v-if="loan.schedules.filter(s => s.status === 'overdue').length > 0">
+                                        <i class="bi bi-exclamation-circle text-danger"></i>
+                                        {{ loan.schedules.filter(s => s.status === 'overdue').length }} Overdue
+                                    </span>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 60px">#</th>
+                                        <th>Due Date</th>
+                                        <th class="text-end">Principal</th>
+                                        <th class="text-end">Interest</th>
+                                        <th class="text-end">Total Due</th>
+                                        <th class="text-end">Paid</th>
+                                        <th class="text-end">Balance</th>
+                                        <th style="width: 120px">Status</th>
+                                        <th style="width: 100px">Progress</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr 
+                                        v-for="installment in getPaginatedSchedules()" 
+                                        :key="installment.id"
+                                        :class="{
+                                            'table-success': installment.status === 'paid',
+                                            'table-warning': installment.status === 'partially_paid',
+                                            'table-danger': installment.status === 'overdue'
+                                        }"
+                                    >
+                                        <td class="fw-bold">{{ installment.installment_number }}</td>
+                                        <td>
+                                            {{ formatDate(installment.due_date) }}
+                                            <span v-if="isUpcoming(installment.due_date)" class="badge bg-info ms-1" style="font-size: 0.7rem">
+                                                Soon
+                                            </span>
+                                            <span v-if="isOverdue(installment)" class="badge bg-danger ms-1" style="font-size: 0.7rem">
+                                                {{ installment.days_past_due }}d overdue
+                                            </span>
+                                        </td>
+                                        <td class="text-end">{{ formatCurrency(installment.principal_due) }}</td>
+                                        <td class="text-end">{{ formatCurrency(installment.interest_due) }}</td>
+                                        <td class="text-end fw-bold">{{ formatCurrency(installment.total_due) }}</td>
+                                        <td class="text-end">{{ formatCurrency(installment.total_paid) }}</td>
+                                        <td class="text-end">
+                                            <span :class="installment.balance_remaining > 0 ? 'text-danger fw-bold' : 'text-success'">
+                                                {{ formatCurrency(installment.balance_remaining) }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <Badge :variant="getInstallmentStatusVariant(installment.status)">
+                                                {{ formatInstallmentStatus(installment.status) }}
+                                            </Badge>
+                                        </td>
+                                        <td>
+                                            <div class="progress" style="height: 8px;">
+                                                <div 
+                                                    class="progress-bar" 
+                                                    :class="getProgressBarClass(installment)"
+                                                    :style="{ width: getPaymentProgress(installment) + '%' }"
+                                                    role="progressbar"
+                                                ></div>
+                                            </div>
+                                            <small class="text-muted">{{ getPaymentProgress(installment) }}%</small>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr class="fw-bold">
+                                        <td colspan="2">Total</td>
+                                        <td class="text-end">{{ formatCurrency(getTotalPrincipal()) }}</td>
+                                        <td class="text-end">{{ formatCurrency(getTotalInterest()) }}</td>
+                                        <td class="text-end">{{ formatCurrency(getTotalDue()) }}</td>
+                                        <td class="text-end">{{ formatCurrency(getTotalPaid()) }}</td>
+                                        <td class="text-end text-danger">{{ formatCurrency(getTotalBalance()) }}</td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <!-- Pagination Controls -->
+                        <div v-if="getTotalPages() > 1" class="d-flex justify-content-between align-items-center mt-3 px-3 pb-3">
+                            <div class="text-muted small">
+                                Showing {{ (currentPage - 1) * perPage + 1 }} to {{ Math.min(currentPage * perPage, loan.schedules.length) }} of {{ loan.schedules.length }} installments
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                                        <a class="page-link" href="#" @click.prevent="prevPage">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                    
+                                    <li 
+                                        v-for="page in getTotalPages()" 
+                                        :key="page"
+                                        class="page-item" 
+                                        :class="{ active: currentPage === page }"
+                                    >
+                                        <a class="page-link" href="#" @click.prevent="goToPage(page)">
+                                            {{ page }}
+                                        </a>
+                                    </li>
+                                    
+                                    <li class="page-item" :class="{ disabled: currentPage === getTotalPages() }">
+                                        <a class="page-link" href="#" @click.prevent="nextPage">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </Card>
+
                     <!-- Recent Repayments -->
                     <Card>
                         <template #header>
-                            <h5 class="mb-0">Recent Repayments</h5>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Recent Repayments</h5>
+                                <button 
+                                    v-if="loan.status === 'active' || loan.status === 'defaulted'"
+                                    type="button" 
+                                    class="btn btn-primary btn-sm" 
+                                    @click="openPaymentModal"
+                                >
+                                    <i class="bi bi-plus-circle me-1"></i>
+                                    Add Payment
+                                </button>
+                            </div>
                         </template>
 
                         <div class="table-responsive">
@@ -737,6 +1020,145 @@ const submitClose = () => {
                                     Processing...
                                 </span>
                                 <span v-else>Close Loan</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Payment Modal -->
+        <div v-if="showPaymentModal" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Record Manual Payment</h5>
+                        <button type="button" class="btn-close" @click="showPaymentModal = false"></button>
+                    </div>
+                    <form @submit.prevent="submitPayment">
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Outstanding Balance:</strong> {{ formatCurrency(loan.total_outstanding) }}
+                                    </div>
+                                </div>
+                                <div v-if="nextInstallment" class="mt-2 pt-2 border-top">
+                                    <small class="d-block">
+                                        <strong>Next Installment #{{ nextInstallment.installment_number }}:</strong>
+                                        {{ formatCurrency(nextInstallment.balance_remaining) }} 
+                                        (Due: {{ formatDate(nextInstallment.due_date) }})
+                                    </small>
+                                    <small class="text-muted d-block mt-1">
+                                        Principal: {{ formatCurrency(nextInstallment.principal_due - nextInstallment.principal_paid) }} | 
+                                        Interest: {{ formatCurrency(nextInstallment.interest_due - nextInstallment.interest_paid) }}
+                                    </small>
+                                </div>
+                                <div v-else class="mt-2 pt-2 border-top">
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle"></i>
+                                        No installment schedule available. Payment will be allocated to interest first, then principal.
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Payment Date *</label>
+                                <input
+                                    v-model="paymentForm.payment_date"
+                                    type="date"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': paymentForm.errors.payment_date }"
+                                    required
+                                />
+                                <div v-if="paymentForm.errors.payment_date" class="invalid-feedback">
+                                    {{ paymentForm.errors.payment_date }}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Amount *</label>
+                                <input
+                                    v-model="paymentForm.amount"
+                                    type="number"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': paymentForm.errors.amount }"
+                                    step="0.01"
+                                    :min="nextInstallment ? nextInstallment.balance_remaining : 0.01"
+                                    placeholder="Enter payment amount"
+                                    required
+                                />
+                                <div v-if="paymentForm.errors.amount" class="invalid-feedback">
+                                    {{ paymentForm.errors.amount }}
+                                </div>
+                                <small v-if="nextInstallment" class="text-muted">
+                                    Minimum: {{ formatCurrency(nextInstallment.balance_remaining) }}. 
+                                    Pay more to advance to next installments.
+                                </small>
+                                <small v-else class="text-muted">
+                                    Enter any amount. Payment will be allocated to interest first, then principal.
+                                </small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Payment Method *</label>
+                                <select
+                                    v-model="paymentForm.payment_method"
+                                    class="form-select"
+                                    :class="{ 'is-invalid': paymentForm.errors.payment_method }"
+                                    required
+                                >
+                                    <option value="cash">Cash</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="mobile_money">Mobile Money</option>
+                                    <option value="cheque">Cheque</option>
+                                    <option value="standing_order">Standing Order</option>
+                                </select>
+                                <div v-if="paymentForm.errors.payment_method" class="invalid-feedback">
+                                    {{ paymentForm.errors.payment_method }}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Reference Number</label>
+                                <input
+                                    v-model="paymentForm.reference_number"
+                                    type="text"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': paymentForm.errors.reference_number }"
+                                    placeholder="Receipt or transaction reference"
+                                />
+                                <div v-if="paymentForm.errors.reference_number" class="invalid-feedback">
+                                    {{ paymentForm.errors.reference_number }}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Notes</label>
+                                <textarea
+                                    v-model="paymentForm.notes"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': paymentForm.errors.notes }"
+                                    rows="3"
+                                    placeholder="Optional notes about this payment"
+                                ></textarea>
+                                <div v-if="paymentForm.errors.notes" class="invalid-feedback">
+                                    {{ paymentForm.errors.notes }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @click="showPaymentModal = false">Cancel</button>
+                            <button type="submit" class="btn btn-primary" :disabled="paymentForm.processing">
+                                <span v-if="paymentForm.processing">
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    Processing...
+                                </span>
+                                <span v-else>
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Record Payment
+                                </span>
                             </button>
                         </div>
                     </form>

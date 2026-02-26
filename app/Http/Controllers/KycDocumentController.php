@@ -41,6 +41,21 @@ class KycDocumentController extends Controller
             'description' => ['nullable', 'string'],
         ]);
 
+        // Check if document type already exists for this customer
+        $existingDocument = $customer->kycDocuments()
+            ->where('document_type', $validated['document_type'])
+            ->whereNull('deleted_at')
+            ->first();
+
+        if ($existingDocument) {
+            return response()->json([
+                'message' => 'This document type has already been uploaded. Please delete the existing document first or upload a different document type.',
+                'errors' => [
+                    'document_type' => ['A document of this type already exists. Please delete it first to upload a new one.']
+                ]
+            ], 422);
+        }
+
         // Store the file
         $file = $request->file('file');
         $filename = time() . '_' . $file->getClientOriginalName();

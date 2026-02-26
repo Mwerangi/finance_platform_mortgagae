@@ -1,5 +1,8 @@
 <template>
-  <AppLayout breadcrumb="Customers / Details">
+  <AppLayout :breadcrumb="[
+    { label: 'Customers', href: '/customers' },
+    { label: customer.full_name }
+  ]">
     <div class="row">
       <div class="col-lg-10 mx-auto">
         <!-- KYC Alert Banner -->
@@ -54,15 +57,23 @@
               <i class="bi bi-pencil me-1"></i>Edit
             </Link>
             <button 
-              v-if="!customer.kyc_verified && kycDocuments.length > 0"
+              v-if="!customer.kyc_verified && canVerifyKyc && kycDocuments && kycDocuments.length > 0"
               @click="verifyKyc"
               class="btn btn-success"
               :disabled="verifying"
+              title="Verify customer KYC documents"
             >
               <span v-if="verifying" class="spinner-border spinner-border-sm me-1"></span>
               <i v-else class="bi bi-check-circle me-1"></i>
               {{ verifying ? 'Verifying...' : 'Verify KYC' }}
             </button>
+            <span 
+              v-else-if="!customer.kyc_verified && !canVerifyKyc && kycDocuments && kycDocuments.length > 0"
+              class="text-muted small d-flex align-items-center"
+              title="Only admins and managers can verify KYC"
+            >
+              <i class="bi bi-info-circle me-1"></i>Admin approval required
+            </span>
           </div>
         </div>
 
@@ -119,7 +130,7 @@
                               {{ getBasicInfoScore() }}/30
                             </span>
                           </div>
-                          <small class="text-muted">Name, DOB, ID, Gender, Marital Status</small>
+                          <small class="text-muted">Name, Middle Name, DOB, ID, Gender, Marital Status, TIN, Passport</small>
                         </div>
                         
                         <div class="mb-2">
@@ -183,7 +194,7 @@
             </Card>
 
             <!-- Contact Information -->
-            <Card title="Contact Information" class="mb-4">
+            <Card header="Contact Information" class="mb-4">
               <div class="mb-3">
                 <label class="text-muted small d-block mb-1">Primary Phone</label>
                 <a :href="`tel:${customer.phone_primary}`" class="text-decoration-none">
@@ -212,7 +223,7 @@
             </Card>
 
             <!-- Statistics -->
-            <Card title="Statistics" class="mb-4">
+            <Card header="Statistics" class="mb-4">
               <div class="row g-3 text-center">
                 <div class="col-6">
                   <div class="border rounded p-2">
@@ -233,7 +244,7 @@
           <!-- Right Column -->
           <div class="col-lg-8">
             <!-- Personal Information -->
-            <Card title="Personal Information" class="mb-4">
+            <Card header="Personal Information" class="mb-4">
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="text-muted small d-block mb-1">Date of Birth</label>
@@ -263,7 +274,7 @@
             </Card>
 
             <!-- Employment/Business Information -->
-            <Card :title="getEmploymentCardTitle()" class="mb-4">
+            <Card :header="getEmploymentCardTitle()" class="mb-4">
               <div class="row g-3">
                 <div class="col-md-6" v-if="customer.employer_name">
                   <label class="text-muted small d-block mb-1">Employer</label>
@@ -292,7 +303,7 @@
             </Card>
 
             <!-- Next of Kin Information -->
-            <Card title="Next of Kin Information" class="mb-4">
+            <Card header="Next of Kin Information" class="mb-4">
               <div v-if="customer.next_of_kin_name">
                 <div class="row g-3">
                   <div class="col-md-6">
@@ -331,6 +342,40 @@
                   </button>
                 </div>
               </template>
+              
+              <!-- Required Documents Checklist -->
+              <div class="alert alert-info mb-3">
+                <div class="d-flex align-items-center mb-2">
+                  <i class="bi bi-list-check fs-5 me-2"></i>
+                  <strong>Required Documents Checklist</strong>
+                </div>
+                <div class="row g-2">
+                  <div 
+                    v-for="docType in getAvailableDocumentTypes().filter(d => d.required)" 
+                    :key="docType.value"
+                    class="col-md-6"
+                  >
+                    <div class="form-check">
+                      <input 
+                        class="form-check-input" 
+                        type="checkbox" 
+                        :checked="isDocumentUploaded(docType.value)"
+                        disabled
+                      >
+                      <label class="form-check-label" :class="{ 'text-success fw-bold': isDocumentUploaded(docType.value) }">
+                        {{ docType.label }}
+                        <i v-if="isDocumentUploaded(docType.value)" class="bi bi-check-circle-fill text-success ms-1"></i>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <small class="text-muted d-block mt-2">
+                  <i class="bi bi-info-circle me-1"></i>
+                  {{ getAvailableDocumentTypes().filter(d => d.required && isDocumentUploaded(d.value)).length }} of 
+                  {{ getAvailableDocumentTypes().filter(d => d.required).length }} required documents uploaded
+                </small>
+              </div>
+              
               <div v-if="kycDocuments && kycDocuments.length > 0" class="table-responsive">
                 <table class="table table-sm mb-0">
                   <thead>
@@ -344,7 +389,12 @@
                   </thead>
                   <tbody>
                     <tr v-for="doc in kycDocuments" :key="doc.id">
-                      <td>{{ formatDocumentType(doc.document_type) }}</td>
+                      <td>
+                        {{ formatDocumentType(doc.document_type) }}
+                        <span v-if="isDocumentRequired(doc.document_type)" class="badge bg-danger ms-1" title="Required for KYC verification">
+                          Required
+                        </span>
+                      </td>
                       <td>{{ doc.document_number || 'N/A' }}</td>
                       <td>
                         <Badge :variant="getVerificationVariant(doc.verification_status)">
@@ -384,9 +434,73 @@
             </Card>
 
             <!-- Notes -->
-            <Card v-if="customer.notes" title="Notes" class="mb-4">
+            <Card v-if="customer.notes" header="Notes" class="mb-4">
               <p class="mb-0">{{ customer.notes }}</p>
             </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verify KYC Confirmation Modal -->
+    <div 
+      class="modal fade" 
+      :class="{ 'show d-block': showVerifyModal }" 
+      tabindex="-1" 
+      style="background-color: rgba(0,0,0,0.5);"
+      v-if="showVerifyModal"
+      @click.self="showVerifyModal = false"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-success text-white">
+            <h5 class="modal-title">
+              <i class="bi bi-check-circle me-2"></i>Verify KYC
+            </h5>
+            <button type="button" class="btn-close btn-close-white" @click="showVerifyModal = false"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-info mb-3">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Customer:</strong> {{ customer.full_name }}
+            </div>
+            
+            <p class="mb-3">Are you sure you want to verify KYC for this customer?</p>
+            
+            <div class="bg-light p-3 rounded mb-3">
+              <h6 class="mb-2">This will:</h6>
+              <ul class="mb-0">
+                <li>Mark the customer as KYC verified</li>
+                <li>Add +5% bonus to profile completion ({{ customer.profile_completion_percentage }}% → {{ customer.profile_completion_percentage + 5 }}%)</li>
+                <li>Allow the customer to proceed with loan applications</li>
+                <li>Record your verification in the system</li>
+              </ul>
+            </div>
+            
+            <div class="alert alert-warning mb-0">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              <strong>Note:</strong> Please ensure all KYC documents have been reviewed and are valid before proceeding.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button 
+              type="button" 
+              class="btn btn-secondary" 
+              @click="showVerifyModal = false"
+              :disabled="verifying"
+            >
+              <i class="bi bi-x-circle me-1"></i>Cancel
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-success" 
+              @click="confirmVerifyKyc"
+              :disabled="verifying"
+            >
+              <span v-if="verifying" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-check-circle me-1"></i>
+              {{ verifying ? 'Verifying...' : 'Yes, Verify KYC' }}
+            </button>
           </div>
         </div>
       </div>
@@ -413,16 +527,26 @@
                 <label class="form-label">Document Type <span class="text-danger">*</span></label>
                 <select v-model="uploadForm.document_type" class="form-select" required>
                   <option value="">Select document type...</option>
-                  <option value="national_id">National ID</option>
-                  <option value="passport">Passport</option>
-                  <option value="drivers_license">Driver's License</option>
-                  <option value="utility_bill">Utility Bill (Proof of Address)</option>
-                  <option value="bank_statement">Bank Statement</option>
-                  <option value="employment_letter">Employment Letter</option>
-                  <option value="business_license">Business License</option>
-                  <option value="tax_certificate">Tax Certificate</option>
-                  <option value="other">Other</option>
+                  <option 
+                    v-for="docType in getAvailableDocumentTypes()" 
+                    :key="docType.value"
+                    :value="docType.value"
+                    :disabled="isDocumentUploaded(docType.value)"
+                  >
+                    {{ docType.label }}
+                    <span v-if="docType.required"> *</span>
+                    <span v-if="isDocumentUploaded(docType.value)"> ✓ (Uploaded)</span>
+                  </option>
                 </select>
+                <small class="text-muted d-block mt-1">
+                  <i class="bi bi-info-circle me-1"></i>
+                  Documents marked with * are required for KYC verification. 
+                  Documents marked with ✓ are already uploaded.
+                </small>
+                <div v-if="uploadForm.document_type && isDocumentUploaded(uploadForm.document_type)" class="alert alert-warning mt-2 py-2 small">
+                  <i class="bi bi-exclamation-triangle me-1"></i>
+                  <strong>Note:</strong> This document type is already uploaded. To replace it, please delete the existing document first from the table below.
+                </div>
                 <div v-if="uploadErrors.document_type" class="text-danger small mt-1">
                   {{ uploadErrors.document_type[0] }}
                 </div>
@@ -517,11 +641,15 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Components/Layout/AppLayout.vue';
 import Card from '@/Components/UI/Card.vue';
 import Badge from '@/Components/UI/Badge.vue';
+import { useToast } from '@/composables/useToast';
+
+const toast = useToast();
+const page = usePage();
 
 const props = defineProps({
   customer: Object,
@@ -530,7 +658,19 @@ const props = defineProps({
   pendingApplication: Object
 });
 
+// Check if current user can verify KYC
+const canVerifyKyc = computed(() => {
+  const user = page.props.auth?.user;
+  if (!user || !user.roles || !Array.isArray(user.roles)) {
+    return false;
+  }
+  
+  const allowedRoles = ['provider-super-admin', 'institution-admin', 'credit-manager'];
+  return user.roles.some(role => allowedRoles.includes(role.slug));
+});
+
 const showUploadModal = ref(false);
+const showVerifyModal = ref(false);
 const uploading = ref(false);
 const uploadProgress = ref(0);
 const uploadErrors = ref({});
@@ -545,6 +685,67 @@ const uploadForm = ref({
   file: null
 });
 
+// Get already uploaded document types
+const uploadedDocumentTypes = () => {
+  return (props.kycDocuments || []).map(doc => doc.document_type);
+};
+
+// Check if a document type is already uploaded
+const isDocumentUploaded = (docType) => {
+  return uploadedDocumentTypes().includes(docType);
+};
+
+// Check if a document type is required
+const isDocumentRequired = (docType) => {
+  const doc = getAvailableDocumentTypes().find(d => d.value === docType);
+  return doc ? doc.required : false;
+};
+
+// Get available document types based on customer type
+const getAvailableDocumentTypes = () => {
+  const customerType = props.customer.customer_type;
+  
+  // Common documents for all customer types
+  const commonDocs = [
+    { value: 'national_id', label: 'National ID (NIDA)', required: true },
+    { value: 'passport', label: 'Passport', required: false },
+    { value: 'drivers_license', label: 'Driver\'s License', required: false },
+    { value: 'utility_bill', label: 'Utility Bill (Proof of Address)', required: true },
+    { value: 'bank_statement', label: 'Bank Statement (Last 6 months)', required: true },
+  ];
+  
+  // Documents specific to salaried clients
+  const salariedDocs = [
+    { value: 'employment_letter', label: 'Employment Letter', required: true },
+  ];
+  
+  // Documents specific to business clients
+  const businessDocs = [
+    { value: 'business_license', label: 'Business License/Registration', required: true },
+    { value: 'tax_certificate', label: 'Tax Certificate (TIN)', required: true },
+  ];
+  
+  // Other documents
+  const otherDocs = [
+    { value: 'other', label: 'Other Document', required: false },
+  ];
+  
+  let documentTypes = [...commonDocs];
+  
+  if (customerType === 'salary') {
+    documentTypes = [...documentTypes, ...salariedDocs, ...otherDocs];
+  } else if (customerType === 'business') {
+    documentTypes = [...documentTypes, ...businessDocs, ...otherDocs];
+  } else if (customerType === 'mixed') {
+    documentTypes = [...documentTypes, ...salariedDocs, ...businessDocs, ...otherDocs];
+  } else {
+    // If type not set, show all
+    documentTypes = [...documentTypes, ...salariedDocs, ...businessDocs, ...otherDocs];
+  }
+  
+  return documentTypes;
+};
+
 const handleFileChange = (event) => {
   uploadForm.value.file = event.target.files[0];
   uploadErrors.value = {};
@@ -552,7 +753,7 @@ const handleFileChange = (event) => {
 
 const uploadDocument = async () => {
   if (!uploadForm.value.file) {
-    alert('Please select a file to upload');
+    toast.error('Please select a file to upload');
     return;
   }
 
@@ -595,7 +796,7 @@ const uploadDocument = async () => {
       only: ['kycDocuments', 'customer'],
       onSuccess: () => {
         // Show success notification
-        alert('Document uploaded successfully!');
+        toast.success('Document uploaded successfully!');
       }
     });
 
@@ -610,8 +811,11 @@ const uploadDocument = async () => {
   } catch (error) {
     if (error.response?.status === 422) {
       uploadErrors.value = error.response.data.errors || {};
+      if (error.response.data.message) {
+        toast.error(error.response.data.message);
+      }
     } else {
-      alert('Failed to upload document: ' + (error.response?.data?.message || error.message));
+      toast.error('Failed to upload document: ' + (error.response?.data?.message || error.message));
     }
   } finally {
     uploading.value = false;
@@ -631,25 +835,26 @@ const deleteDocument = async (documentId) => {
     router.reload({
       only: ['kycDocuments', 'customer'],
       onSuccess: () => {
-        alert('Document deleted successfully!');
+        toast.success('Document deleted successfully!');
       }
     });
   } catch (error) {
-    alert('Failed to delete document: ' + (error.response?.data?.message || error.message));
+    toast.error('Failed to delete document: ' + (error.response?.data?.message || error.message));
   }
 };
 
 const viewDocument = (doc) => {
   // TODO: Implement document viewer
-  alert('Document viewer will be implemented. Document ID: ' + doc.id);
+  toast.info('Document viewer will be implemented. Document ID: ' + doc.id);
 };
 
-const verifyKyc = async () => {
-  if (!confirm('Are you sure you want to verify KYC for this customer? This will mark them as KYC verified.')) {
-    return;
-  }
+const verifyKyc = () => {
+  showVerifyModal.value = true;
+};
 
+const confirmVerifyKyc = async () => {
   verifying.value = true;
+  showVerifyModal.value = false;
 
   try {
     await window.axios.post(`/customers/${props.customer.id}/verify-kyc`);
@@ -658,11 +863,11 @@ const verifyKyc = async () => {
     router.reload({
       only: ['customer'],
       onSuccess: () => {
-        alert('Customer KYC verified successfully!');
+        toast.success('Customer KYC verified successfully!');
       }
     });
   } catch (error) {
-    alert('Failed to verify KYC: ' + (error.response?.data?.message || error.message));
+    toast.error('Failed to verify KYC: ' + (error.response?.data?.message || error.message));
   } finally {
     verifying.value = false;
   }
@@ -749,10 +954,13 @@ const getBasicInfoScore = () => {
   let score = 0;
   if (props.customer.first_name) score += 5;
   if (props.customer.last_name) score += 5;
+  if (props.customer.middle_name) score += 2;
   if (props.customer.date_of_birth) score += 3;
   if (props.customer.gender) score += 2;
   if (props.customer.national_id) score += 5;
   if (props.customer.marital_status) score += 2;
+  if (props.customer.tin) score += 3;
+  if (props.customer.passport_number) score += 3;
   return score;
 };
 

@@ -244,12 +244,18 @@ class CustomerController extends Controller
      */
     public function verifyKyc(Customer $customer)
     {
+        // Check if user has permission to verify KYC
+        $user = auth()->user();
+        if (!$user->hasAnyRole(['provider-super-admin', 'institution-admin', 'credit-manager'])) {
+            abort(403, 'You do not have permission to verify KYC.');
+        }
+
         // Check if customer has uploaded required documents
         $requiredDocuments = ['national_id']; // Minimum required
         $uploadedDocumentTypes = $customer->kycDocuments()->pluck('document_type')->toArray();
 
         // For now, just verify - in production you'd want stricter checks
-        $customer->verifyKyc(auth()->id());
+        $customer->verifyKyc($user->id);
 
         return back()->with('success', 'Customer KYC verified successfully.');
     }

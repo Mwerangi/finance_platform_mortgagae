@@ -93,7 +93,7 @@ const formatDate = (date) => {
 </script>
 
 <template>
-    <AppLayout title="Loan Portfolio">
+    <AppLayout title="Loan Portfolio" breadcrumb="Loans">
         <div class="container-fluid py-4">
             <!-- Page Header -->
             <div class="row mb-4">

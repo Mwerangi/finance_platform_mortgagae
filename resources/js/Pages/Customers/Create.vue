@@ -1,5 +1,8 @@
 <template>
-  <AppLayout breadcrumb="Customers / Create">
+  <AppLayout :breadcrumb="[
+    { label: 'Customers', href: '/customers' },
+    { label: 'Create New Customer' }
+  ]">
     <div class="row">
       <div class="col-lg-10 mx-auto">
         <!-- Page Header -->
@@ -10,7 +13,7 @@
 
         <form @submit.prevent="submit">
           <!-- Customer Type -->
-          <Card title="Customer Type" class="mb-4">
+          <Card header="Customer Type" class="mb-4">
             <Select
               v-model="form.customer_type"
               label="Customer Type"
@@ -24,7 +27,7 @@
           </Card>
 
           <!-- Personal Information -->
-          <Card title="Personal Information" class="mb-4">
+          <Card header="Personal Information" class="mb-4">
             <div class="row g-3">
               <div class="col-md-4">
                 <Input
@@ -101,7 +104,7 @@
           </Card>
 
           <!-- Contact Information -->
-          <Card title="Contact Information" class="mb-4">
+          <Card header="Contact Information" class="mb-4">
             <div class="row g-3">
               <div class="col-md-6">
                 <Input
@@ -132,7 +135,7 @@
           </Card>
 
           <!-- Address Information -->
-          <Card title="Address Information" class="mb-4">
+          <Card header="Address Information" class="mb-4">
             <div class="row g-3">
               <div class="col-12">
                 <div class="mb-3">
@@ -179,8 +182,8 @@
             </div>
           </Card>
 
-          <!-- Employment Information -->
-          <Card title="Employment Information" class="mb-4">
+          <!-- Employment/Business Information -->
+          <Card header="Employment Information" class="mb-4">
             <div class="row g-3">
               <div class="col-md-6" v-if="form.customer_type === 'salary' || form.customer_type === 'mixed'">
                 <Input
@@ -223,8 +226,8 @@
             </div>
           </Card>
 
-          <!-- Next of Kin -->
-          <Card title="Next of Kin" class="mb-4">
+          <!-- Next of Kin Information -->
+          <Card header="Next of Kin Information" class="mb-4">
             <div class="row g-3">
               <div class="col-md-6">
                 <Input
@@ -267,7 +270,7 @@
           </Card>
 
           <!-- Additional Information -->
-          <Card title="Additional Information" class="mb-4">
+          <Card header="Additional Information" class="mb-4">
             <div class="row g-3">
               <div class="col-md-6">
                 <Select

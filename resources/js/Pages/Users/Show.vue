@@ -1,5 +1,8 @@
 <template>
-  <AppLayout :breadcrumb="`User: ${user.name}`">
+  <AppLayout :breadcrumb="[
+    { label: 'Users', href: '/users' },
+    { label: user.name }
+  ]">
     <div class="row">
       <!-- Left Column - Profile Overview -->
       <div class="col-lg-4 mb-4">

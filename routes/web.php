@@ -72,23 +72,38 @@ Route::middleware(['auth'])->group(function () {
         ->name('kyc-documents.download');
     
     // Applications
-    Route::resource('applications', \App\Http\Controllers\ApplicationController::class);
+    // Define specific action routes BEFORE the resource to avoid conflicts
+    Route::get('/applications/{application}/disburse', [\App\Http\Controllers\Web\LoanController::class, 'showDisbursement'])
+        ->name('loans.show-disbursement')
+        ->where('application', '[0-9]+');
+    Route::post('/applications/{application}/disburse', [\App\Http\Controllers\Web\LoanController::class, 'disburse'])
+        ->name('loans.disburse')
+        ->where('application', '[0-9]+');
     Route::post('/applications/{application}/start-review', [\App\Http\Controllers\ApplicationController::class, 'startReview'])
-        ->name('applications.start-review');
+        ->name('applications.start-review')
+        ->where('application', '[0-9]+');
     Route::post('/applications/{application}/approve', [\App\Http\Controllers\ApplicationController::class, 'approve'])
-        ->name('applications.approve');
+        ->name('applications.approve')
+        ->where('application', '[0-9]+');
     Route::post('/applications/{application}/reject', [\App\Http\Controllers\ApplicationController::class, 'reject'])
-        ->name('applications.reject');
+        ->name('applications.reject')
+        ->where('application', '[0-9]+');
+    
+    // Resource routes with constraint to only match numeric IDs
+    Route::resource('applications', \App\Http\Controllers\ApplicationController::class)
+        ->where(['application' => '[0-9]+']);
     
     // Loans
     Route::get('/loans', [\App\Http\Controllers\Web\LoanController::class, 'index'])
         ->name('loans.index');
+    Route::get('/loans/disbursements', [\App\Http\Controllers\Web\LoanController::class, 'disbursements'])
+        ->name('loans.disbursements');
+    Route::get('/loans/repayments', [\App\Http\Controllers\Web\LoanController::class, 'repayments'])
+        ->name('loans.repayments');
     Route::get('/loans/{loan}', [\App\Http\Controllers\Web\LoanController::class, 'show'])
         ->name('loans.show');
-    Route::get('/applications/{application}/disburse', [\App\Http\Controllers\Web\LoanController::class, 'showDisbursement'])
-        ->name('loans.show-disbursement');
-    Route::post('/applications/{application}/disburse', [\App\Http\Controllers\Web\LoanController::class, 'disburse'])
-        ->name('loans.disburse');
+    Route::post('/loans/{loan}/add-payment', [\App\Http\Controllers\Web\LoanController::class, 'addPayment'])
+        ->name('loans.add-payment');
     Route::post('/loans/{loan}/activate', [\App\Http\Controllers\Web\LoanController::class, 'activate'])
         ->name('loans.activate');
     Route::post('/loans/{loan}/write-off', [\App\Http\Controllers\Web\LoanController::class, 'writeOff'])

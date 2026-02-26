@@ -1,5 +1,8 @@
 <template>
-  <AppLayout :breadcrumb="`Prospects / ${prospect.first_name} ${prospect.last_name}`">
+  <AppLayout :breadcrumb="[
+    { label: 'Prospects', href: '/prospects' },
+    { label: `${prospect.first_name} ${prospect.last_name}` }
+  ]">
     <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>

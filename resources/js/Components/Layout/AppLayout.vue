@@ -6,7 +6,7 @@
         <!-- Logo/Brand -->
         <a class="navbar-brand fw-bold" href="/dashboard">
           <i class="bi bi-bank2 me-2"></i>
-          {{ $page.props.auth.institution?.name || 'Mortgage Platform' }}
+          {{ $page.props.auth?.institution?.name || 'Mortgage Platform' }}
         </a>
 
         <!-- Mobile Toggle -->
@@ -128,10 +128,10 @@
             </li>
 
             <!-- User Dropdown -->
-            <li class="nav-item dropdown" v-if="$page.props.auth.user">
+            <li class="nav-item dropdown" v-if="$page.props.auth?.user">
               <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                 <i class="bi bi-person-circle me-1"></i>
-                {{ $page.props.auth.user.name }}
+                {{ $page.props.auth?.user?.name }}
               </a>
               <ul class="dropdown-menu dropdown-menu-end">
                 <li><Link class="dropdown-item" href="/profile">
@@ -156,8 +156,26 @@
       <div class="container-fluid">
         <nav aria-label="breadcrumb" class="py-2">
           <ol class="breadcrumb mb-0">
-            <li class="breadcrumb-item"><Link href="/dashboard">Home</Link></li>
-            <li class="breadcrumb-item active">{{ breadcrumb }}</li>
+            <li class="breadcrumb-item">
+              <Link href="/dashboard" class="text-decoration-none">
+                <i class="bi bi-house-door me-1"></i>Home
+              </Link>
+            </li>
+            <li 
+              v-for="(item, index) in breadcrumbItems" 
+              :key="index"
+              class="breadcrumb-item"
+              :class="{ 'active': index === breadcrumbItems.length - 1 }"
+            >
+              <Link 
+                v-if="item.href && index !== breadcrumbItems.length - 1" 
+                :href="item.href"
+                class="text-decoration-none"
+              >
+                {{ item.label }}
+              </Link>
+              <span v-else>{{ item.label }}</span>
+            </li>
           </ol>
         </nav>
       </div>
@@ -228,10 +246,31 @@
 
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
-defineProps({
-  breadcrumb: String
+const props = defineProps({
+  breadcrumb: [String, Array]
+});
+
+// Parse breadcrumb into array format
+const breadcrumbItems = computed(() => {
+  if (!props.breadcrumb) return [];
+  
+  // If already an array, return it
+  if (Array.isArray(props.breadcrumb)) {
+    return props.breadcrumb;
+  }
+  
+  // If string with "/", parse it into array
+  if (typeof props.breadcrumb === 'string' && props.breadcrumb.includes('/')) {
+    return props.breadcrumb.split('/').map(item => ({
+      label: item.trim(),
+      href: null
+    }));
+  }
+  
+  // Single string breadcrumb
+  return [{ label: props.breadcrumb, href: null }];
 });
 
 const notifications = ref(0); // Would come from API/props in real app
@@ -278,6 +317,26 @@ watch(
 </script>
 
 <style scoped>
+/* Breadcrumb styling */
+.breadcrumb-item a {
+  color: #0d6efd;
+  transition: color 0.2s ease;
+}
+
+.breadcrumb-item a:hover {
+  color: #0a58ca;
+  text-decoration: underline !important;
+}
+
+.breadcrumb-item.active {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  color: #6c757d;
+}
+
 /* Toast transition animations */
 .toast-enter-active,
 .toast-leave-active {

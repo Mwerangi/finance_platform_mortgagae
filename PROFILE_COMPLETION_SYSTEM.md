@@ -11,10 +11,13 @@ The profile completion system provides a dynamic, real-time percentage score tha
 ### 1. Basic Information (30 points)
 - **First Name**: 5 points
 - **Last Name**: 5 points
+- **Middle Name**: 2 points
 - **Date of Birth**: 3 points
 - **Gender**: 2 points
 - **National ID**: 5 points
 - **Marital Status**: 2 points
+- **TIN (Tax ID)**: 3 points
+- **Passport Number**: 3 points
 
 ### 2. Contact Information (20 points)
 - **Primary Phone**: 7 points
