@@ -204,8 +204,8 @@
             </div>
           </Card>
 
-          <!-- Employment Information -->
-          <Card title="Employment Information" class="mb-4">
+          <!-- Employment/Business Information -->
+          <Card :title="getEmploymentCardTitle()" class="mb-4">
             <div class="row g-3">
               <div class="col-md-6" v-if="form.customer_type === 'salary' || form.customer_type === 'mixed'">
                 <Input
@@ -246,8 +246,8 @@
             </div>
           </Card>
 
-          <!-- Next of Kin -->
-          <Card title="Next of Kin" class="mb-4">
+          <!-- Next of Kin Information -->
+          <Card title="Next of Kin Information" class="mb-4">
             <div class="row g-3">
               <div class="col-md-6">
                 <Input
@@ -441,5 +441,16 @@ const formatDate = (date) => {
     month: 'long',
     day: 'numeric'
   });
+};
+
+const getEmploymentCardTitle = () => {
+  if (form.customer_type === 'salary') {
+    return 'Employment Information';
+  } else if (form.customer_type === 'business') {
+    return 'Business Information';
+  } else if (form.customer_type === 'mixed') {
+    return 'Employment & Business Information';
+  }
+  return 'Employment/Business Information';
 };
 </script>

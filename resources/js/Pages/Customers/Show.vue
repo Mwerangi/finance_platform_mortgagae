@@ -262,8 +262,8 @@
               </div>
             </Card>
 
-            <!-- Employment Information -->
-            <Card title="Employment Information" class="mb-4">
+            <!-- Employment/Business Information -->
+            <Card :title="getEmploymentCardTitle()" class="mb-4">
               <div class="row g-3">
                 <div class="col-md-6" v-if="customer.employer_name">
                   <label class="text-muted small d-block mb-1">Employer</label>
@@ -291,8 +291,8 @@
               </div>
             </Card>
 
-            <!-- Next of Kin -->
-            <Card title="Next of Kin" class="mb-4">
+            <!-- Next of Kin Information -->
+            <Card title="Next of Kin Information" class="mb-4">
               <div v-if="customer.next_of_kin_name">
                 <div class="row g-3">
                   <div class="col-md-6">
@@ -718,6 +718,17 @@ const formatDate = (date) => {
     month: 'long',
     day: 'numeric'
   });
+};
+
+const getEmploymentCardTitle = () => {
+  if (props.customer.customer_type === 'salary') {
+    return 'Employment Information';
+  } else if (props.customer.customer_type === 'business') {
+    return 'Business Information';
+  } else if (props.customer.customer_type === 'mixed') {
+    return 'Employment & Business Information';
+  }
+  return 'Employment/Business Information';
 };
 
 const calculateAge = (dob) => {
