@@ -369,9 +369,17 @@ class ProspectController extends Controller
                 ->withErrors(['error' => 'No eligibility assessment found. Please complete bank statement upload first.']);
         }
 
+        // Get analytics data from bank statement import
+        $analytics = null;
+        $bankStatement = $prospect->statementImport;
+        if ($bankStatement) {
+            $analytics = $bankStatement->analytics;
+        }
+
         return Inertia::render('PreQualify/Results', [
             'prospect' => $prospect->load(['loanProduct', 'eligibilityAssessment']),
             'assessment' => $prospect->eligibilityAssessment,
+            'analytics' => $analytics,
         ]);
     }
 

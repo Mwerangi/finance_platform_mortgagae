@@ -283,6 +283,234 @@
                         </div>
                     </div>
 
+                    <!-- Transaction Summary -->
+                    <div v-if="analytics" class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-graph-up-arrow me-2"></i>Transaction Summary
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-4 mb-3">
+                                    <div class="border-end">
+                                        <div class="text-muted small">Total Credits</div>
+                                        <div class="h4 text-success mb-1">
+                                            TZS {{ Number(analytics.total_credits || 0).toLocaleString() }}
+                                        </div>
+                                        <small class="text-muted">{{ analytics.total_credit_count || 0 }} transactions</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="border-end">
+                                        <div class="text-muted small">Total Debits</div>
+                                        <div class="h4 text-danger mb-1">
+                                            TZS {{ Number(analytics.total_debits || 0).toLocaleString() }}
+                                        </div>
+                                        <small class="text-muted">{{ analytics.total_debit_count || 0 }} transactions</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div>
+                                        <div class="text-muted small">Net Position</div>
+                                        <div class="h4 mb-1" :class="(analytics.total_credits - analytics.total_debits) >= 0 ? 'text-success' : 'text-danger'">
+                                            TZS {{ Number((analytics.total_credits || 0) - (analytics.total_debits || 0)).toLocaleString() }}
+                                        </div>
+                                        <small class="text-muted">Avg Credit: TZS {{ Number(analytics.avg_credit_amount || 0).toLocaleString() }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loan & Repayment Detection -->
+                    <div v-if="analytics && analytics.detected_loan_count > 0" class="card mb-4">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-exclamation-circle me-2"></i>Loan & Repayment Detection
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Detected Loans:</span>
+                                        <strong class="text-warning">{{ analytics.detected_loan_count }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Monthly Repayment:</span>
+                                        <strong class="text-danger">TZS {{ Number(analytics.detected_monthly_loan_repayment || 0).toLocaleString() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Confidence:</span>
+                                        <strong>{{ analytics.loan_detection_confidence || 'N/A' }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Loan Stacking Alert -->
+                            <div v-if="analytics.loan_stacking_detected" class="alert alert-danger mb-3">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                <strong>LOAN STACKING DETECTED!</strong>
+                                <p class="mb-0 small">Multiple active loans detected. This significantly increases repayment risk.</p>
+                            </div>
+
+                            <!-- Detected Loans Table -->
+                            <div v-if="analytics.detected_loans && analytics.detected_loans.length > 0" class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Lender/Keyword</th>
+                                            <th>Detected Amount</th>
+                                            <th>Occurrences</th>
+                                            <th>Confidence</th>
+                                            <th>First Detected</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(loan, idx) in analytics.detected_loans" :key="idx">
+                                            <td>{{ loan.lender || loan.keyword }}</td>
+                                            <td>TZS {{ Number(loan.amount).toLocaleString() }}</td>
+                                            <td>{{ loan.occurrences || 1 }}</td>
+                                            <td>
+                                                <span class="badge" :class="{
+                                                    'bg-success': loan.confidence === 'high',
+                                                    'bg-warning': loan.confidence === 'medium',
+                                                    'bg-secondary': loan.confidence === 'low'
+                                                }">
+                                                    {{ loan.confidence || 'N/A' }}
+                                                </span>
+                                            </td>
+                                            <td><small>{{ loan.first_detected || 'N/A' }}</small></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Income Source Composition -->
+                    <div v-if="analytics && (analytics.salary_income > 0 || analytics.business_income > 0)" class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-pie-chart me-2"></i>Income Source Composition
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div v-if="analytics.salary_income > 0" class="col-md-6 col-lg-4 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Salary Income:</span>
+                                        <strong class="text-success">TZS {{ Number(analytics.salary_income || 0).toLocaleString() }}</strong>
+                                    </div>
+                                </div>
+                                <div v-if="analytics.business_income > 0" class="col-md-6 col-lg-4 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Business Income:</span>
+                                        <strong class="text-info">TZS {{ Number(analytics.business_income || 0).toLocaleString() }}</strong>
+                                    </div>
+                                </div>
+                                <div v-if="analytics.transfer_inflows > 0" class="col-md-6 col-lg-4 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Transfer Inflows:</span>
+                                        <strong>TZS {{ Number(analytics.transfer_inflows || 0).toLocaleString() }}</strong>
+                                    </div>
+                                </div>
+                                <div v-if="analytics.loan_inflows > 0" class="col-md-6 col-lg-4 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Loan Inflows:</span>
+                                        <strong class="text-warning">TZS {{ Number(analytics.loan_inflows || 0).toLocaleString() }}</strong>
+                                    </div>
+                                </div>
+                                <div v-if="analytics.bulk_deposits > 0" class="col-md-6 col-lg-4 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Bulk Deposits:</span>
+                                        <strong class="text-purple">TZS {{ Number(analytics.bulk_deposits || 0).toLocaleString() }}</strong>
+                                    </div>
+                                </div>
+                                <div v-if="analytics.other_income > 0" class="col-md-6 col-lg-4 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Other Income:</span>
+                                        <strong>TZS {{ Number(analytics.other_income || 0).toLocaleString() }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Suspicious Deposits Alert -->
+                            <div v-if="analytics.suspicious_deposits_flagged" class="alert alert-warning mt-3">
+                                <i class="bi bi-exclamation-diamond me-2"></i>
+                                <strong>SUSPICIOUS DEPOSITS FLAGGED</strong>
+                                <p class="mb-0 small">
+                                    {{ analytics.bulk_deposit_count || 0 }} large unexplained deposit(s) detected. 
+                                    Manual verification recommended.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Behavioral Analysis -->
+                    <div v-if="analytics && analytics.behavioral_pattern" class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-activity me-2"></i>Behavioral Analysis
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Transaction Pattern:</span>
+                                        <strong>{{ analytics.behavioral_pattern || 'N/A' }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Behavioral Risk:</span>
+                                        <span class="badge" :class="{
+                                            'bg-success': analytics.behavioral_risk_level === 'low',
+                                            'bg-warning': analytics.behavioral_risk_level === 'medium',
+                                            'bg-danger': analytics.behavioral_risk_level === 'high'
+                                        }">
+                                            {{ analytics.behavioral_risk_level || 'N/A' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Frequency Score:</span>
+                                        <strong>{{ analytics.transaction_frequency_score || 0 }}/100</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Cash Withdrawal Ratio:</span>
+                                        <strong>{{ Number(analytics.cash_withdrawal_ratio || 0).toFixed(2) }}%</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Income Volatility:</span>
+                                        <strong>{{ Number(analytics.income_volatility || 0).toFixed(2) }}%</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Behavioral Flags -->
+                            <div v-if="analytics.behavioral_flags && analytics.behavioral_flags.length > 0">
+                                <h6 class="text-muted small mb-2">Behavioral Flags:</h6>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span v-for="(flag, idx) in analytics.behavioral_flags" :key="idx" class="badge bg-warning text-dark">
+                                        {{ flag }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Conditions (if any) -->
                     <div v-if="assessment.conditions && assessment.conditions.length > 0" class="card mb-4">
                         <div class="card-header bg-warning">
@@ -764,6 +992,7 @@ import AppLayout from '@/Components/Layout/AppLayout.vue';
 const props = defineProps({
     prospect: Object,
     assessment: Object,
+    analytics: Object,
 });
 
 const page = usePage();
@@ -1075,6 +1304,10 @@ const getRiskWeightClass = (weight) => {
 
 .border-end {
     border-right: 1px solid #dee2e6 !important;
+}
+
+.text-purple {
+    color: #8b5cf6 !important;
 }
 
 @media (max-width: 768px) {

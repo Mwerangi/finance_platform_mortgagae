@@ -830,6 +830,247 @@
     </div>
     @endif
 
+    <!-- Total Credit and Debit Balances -->
+    @if(isset($analytics) && $analytics)
+    <div class="section">
+        <div class="section-title">Transaction Summary</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Transaction Type</th>
+                    <th class="text-center">Count</th>
+                    <th class="text-right">Total Amount</th>
+                    <th class="text-right">Average Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Credits (Inflows)</strong></td>
+                    <td class="text-center">{{ number_format($analytics->total_credit_count ?? 0) }}</td>
+                    <td class="text-right" style="color: #059669;">{{ number_format($analytics->total_credits ?? 0, 0) }}</td>
+                    <td class="text-right">{{ number_format($analytics->avg_credit_amount ?? 0, 0) }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Debits (Outflows)</strong></td>
+                    <td class="text-center">{{ number_format($analytics->total_debit_count ?? 0) }}</td>
+                    <td class="text-right" style="color: #dc2626;">{{ number_format($analytics->total_debits ?? 0, 0) }}</td>
+                    <td class="text-right">{{ number_format($analytics->avg_debit_amount ?? 0, 0) }}</td>
+                </tr>
+                <tr class="highlight">
+                    <td><strong>Net Position</strong></td>
+                    <td class="text-center">-</td>
+                    <td class="text-right">
+                        @php
+                            $netPosition = ($analytics->total_credits ?? 0) - ($analytics->total_debits ?? 0);
+                        @endphp
+                        <strong style="color: {{ $netPosition >= 0 ? '#059669' : '#dc2626' }}">
+                            {{ number_format($netPosition, 0) }}
+                        </strong>
+                    </td>
+                    <td class="text-right">-</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    @endif
+
+    <!-- Loan & Repayment Detection -->
+    @if(isset($analytics) && $analytics && ($analytics->detected_loan_count > 0 || $analytics->loan_stacking_detected))
+    <div class="section">
+        <div class="section-title">Loan & Repayment Detection</div>
+        
+        <div class="grid-2" style="margin-bottom: 12px;">
+            <div>
+                <div class="label">Detected Loans</div>
+                <div class="value">
+                    {{ $analytics->detected_loan_count ?? 0 }} loan(s)
+                    @if($analytics->loan_stacking_detected)
+                        <span style="color: #dc2626; font-weight: 600; margin-left: 8px;">⚠️ LOAN STACKING DETECTED</span>
+                    @endif
+                </div>
+            </div>
+            <div>
+                <div class="label">Total Monthly Repayment</div>
+                <div class="value" style="color: #dc2626; font-weight: 600;">
+                    {{ number_format($analytics->detected_monthly_loan_repayment ?? 0, 0) }}
+                </div>
+            </div>
+            <div>
+                <div class="label">Detection Confidence</div>
+                <div class="value">
+                    @php
+                        $confidence = $analytics->loan_detection_confidence ?? 'none';
+                        $confidenceColors = ['high' => '#059669', 'medium' => '#f59e0b', 'low' => '#6b7280', 'none' => '#9ca3af'];
+                    @endphp
+                    <span style="color: {{ $confidenceColors[$confidence] ?? '#6b7280' }}; font-weight: 600;">
+                        {{ strtoupper($confidence) }}
+                    </span>
+                </div>
+            </div>
+            @if($analytics->loan_inflows > 0)
+            <div>
+                <div class="label">Loan Disbursements Received</div>
+                <div class="value" style="color: #f59e0b;">
+                    {{ number_format($analytics->loan_inflows ?? 0, 0) }}
+                </div>
+            </div>
+            @endif
+        </div>
+
+        @if($analytics->detected_loans && is_array($analytics->detected_loans) && count($analytics->detected_loans) > 0)
+        <div style="margin-top: 12px;">
+            <div style="font-weight: 600; margin-bottom: 8px; font-size: 8pt; color: #374151;">Detected Loan Details:</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Lender</th>
+                        <th>Description</th>
+                        <th class="text-center">Occurrences</th>
+                        <th class="text-right">Monthly Amount</th>
+                        <th class="text-center">Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($analytics->detected_loans as $loan)
+                    <tr>
+                        <td><strong>{{ $loan['lender_name'] ?? 'Unknown' }}</strong></td>
+                        <td style="font-size: 7pt;">{{ \Illuminate\Support\Str::limit($loan['description'] ?? 'N/A', 40) }}</td>
+                        <td class="text-center">{{ $loan['occurrences'] ?? 0 }}</td>
+                        <td class="text-right">{{ number_format($loan['monthly_amount'] ?? 0, 0) }}</td>
+                        <td class="text-center">
+                            @php
+                                $loanConfidence = $loan['confidence'] ?? 'low';
+                                $badge_class = $loanConfidence === 'high' ? 'success' : ($loanConfidence === 'medium' ? 'warning' : 'secondary');
+                            @endphp
+                            <span class="status-badge {{ $badge_class }}">{{ strtoupper($loanConfidence) }}</span>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            
+            @if($analytics->loan_stacking_detected)
+            <div style="background: #fef2f2; padding: 10px; border-left: 4px solid #dc2626; margin-top: 12px; border-radius: 3px;">
+                <div style="font-weight: 600; color: #991b1b; font-size: 8pt; margin-bottom: 4px;">⚠️ LOAN STACKING ALERT</div>
+                <div style="font-size: 7pt; color: #7f1d1d;">
+                    Multiple active loans detected ({{ $analytics->detected_loan_count }} loans). This significantly increases credit risk and may affect debt-to-income ratio calculations.
+                </div>
+            </div>
+            @endif
+        </div>
+        @endif
+    </div>
+    @endif
+
+    <!-- Income Source Composition -->
+    @if(isset($analytics) && $analytics && ($analytics->salary_income > 0 || $analytics->business_income > 0))
+    <div class="section">
+        <div class="section-title">Income Source Composition</div>
+        
+        <div class="grid-2">
+            @if($analytics->salary_income > 0)
+            <div>
+                <div class="label">Salary Income</div>
+                <div class="value" style="color: #059669;">{{ number_format($analytics->salary_income ?? 0, 0) }}</div>
+            </div>
+            @endif
+            @if($analytics->business_income > 0)
+            <div>
+                <div class="label">Business Income</div>
+                <div class="value" style="color: #0891b2;">{{ number_format($analytics->business_income ?? 0, 0) }}</div>
+            </div>
+            @endif
+            @if($analytics->transfer_inflows > 0)
+            <div>
+                <div class="label">Transfer Inflows</div>
+                <div class="value">{{ number_format($analytics->transfer_inflows ?? 0, 0) }}</div>
+            </div>
+            @endif
+            @if($analytics->loan_inflows > 0)
+            <div>
+                <div class="label">Loan Inflows</div>
+                <div class="value" style="color: #f59e0b;">{{ number_format($analytics->loan_inflows ?? 0, 0) }}</div>
+            </div>
+            @endif
+            @if($analytics->bulk_deposits > 0)
+            <div>
+                <div class="label">Bulk Deposits</div>
+                <div class="value" style="color: #8b5cf6;">{{ number_format($analytics->bulk_deposits ?? 0, 0) }}</div>
+            </div>
+            @endif
+            @if($analytics->other_income > 0)
+            <div>
+                <div class="label">Other Income</div>
+                <div class="value">{{ number_format($analytics->other_income ?? 0, 0) }}</div>
+            </div>
+            @endif
+        </div>
+
+        @if($analytics->suspicious_deposits_flagged)
+        <div style="background: #fef2f2; padding: 10px; border-left: 4px solid #dc2626; margin-top: 12px; border-radius: 3px;">
+            <div style="font-weight: 600; color: #991b1b; font-size: 8pt; margin-bottom: 4px;">⚠️ SUSPICIOUS DEPOSITS FLAGGED</div>
+            <div style="font-size: 7pt; color: #7f1d1d;">
+                Large unexplained deposits detected. {{ $analytics->bulk_deposit_count ?? 0 }} bulk deposit(s) identified with unknown source.
+            </div>
+        </div>
+        @endif
+    </div>
+    @endif
+
+    <!-- Behavioral Analysis -->
+    @if(isset($analytics) && $analytics && $analytics->behavioral_risk_level)
+    <div class="section">
+        <div class="section-title">Behavioral Analysis</div>
+        
+        <div class="grid-2">
+            <div>
+                <div class="label">Transaction Pattern</div>
+                <div class="value">{{ ucfirst($analytics->transaction_pattern ?? 'Unknown') }}</div>
+            </div>
+            <div>
+                <div class="label">Behavioral Risk Level</div>
+                <div class="value">
+                    @php
+                        $behavioralRisk = $analytics->behavioral_risk_level ?? 'low';
+                        $riskColors = ['high' => '#dc2626', 'medium' => '#f59e0b', 'low' => '#059669'];
+                    @endphp
+                    <span style="color: {{ $riskColors[$behavioralRisk] ?? '#6b7280' }}; font-weight: 600;">
+                        {{ strtoupper($behavioralRisk) }}
+                    </span>
+                </div>
+            </div>
+            <div>
+                <div class="label">Transaction Frequency</div>
+                <div class="value">{{ number_format($analytics->transaction_frequency_score ?? 0, 1) }}/100</div>
+            </div>
+            <div>
+                <div class="label">Cash Withdrawal Ratio</div>
+                <div class="value">{{ number_format($analytics->cash_withdrawal_ratio ?? 0, 1) }}%</div>
+            </div>
+            <div>
+                <div class="label">Income Volatility</div>
+                <div class="value">{{ number_format($analytics->income_volatility_coefficient ?? 0, 1) }}%</div>
+            </div>
+        </div>
+
+        @if($analytics->behavioral_flags && is_array($analytics->behavioral_flags) && count($analytics->behavioral_flags) > 0)
+        <div style="margin-top: 12px;">
+            <div style="font-weight: 600; margin-bottom: 8px; font-size: 8pt; color: #374151;">Behavioral Flags:</div>
+            <ul style="margin: 0; padding-left: 20px; font-size: 7pt;">
+                @foreach($analytics->behavioral_flags as $flag)
+                    <li style="margin-bottom: 4px; color: {{ ($flag['severity'] ?? 'low') === 'high' ? '#dc2626' : '#f59e0b' }}">
+                        <strong>{{ ucwords(str_replace('_', ' ', $flag['flag'] ?? 'Unknown')) }}</strong>
+                        @if(isset($flag['value']))
+                            - {{ $flag['value'] }}
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
+    </div>
+    @endif
+
     <!-- Underwriting Decision -->
     @if(isset($underwritingDecision) && $underwritingDecision)
     <div class="section">

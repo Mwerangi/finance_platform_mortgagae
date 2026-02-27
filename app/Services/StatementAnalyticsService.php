@@ -295,8 +295,8 @@ class StatementAnalyticsService
         $monthsCovered = $transactions->last()->transaction_date->diffInMonths($transactions->first()->transaction_date) + 1;
         
         // Use detected monthly loan repayment if available, otherwise estimate
-        $monthlyDebt = !empty($loanDetection) && $loanDetection['total_monthly_repayment'] > 0
-            ? $loanDetection['total_monthly_repayment']
+        $monthlyDebt = !empty($loanDetection) && ($loanDetection['detected_monthly_loan_repayment'] ?? 0) > 0
+            ? $loanDetection['detected_monthly_loan_repayment']
             : ($monthsCovered > 0 ? $totalDebtAmount / $monthsCovered : 0);
 
         // Group by similar amounts to detect recurring debts
