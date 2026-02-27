@@ -14,7 +14,7 @@ class SettingsController extends Controller
      */
     public function index(): Response
     {
-        $settings = SystemSetting::with('updatedBy:id,first_name,last_name')
+        $settings = SystemSetting::with('updatedBy:id,name,email')
             ->orderBy('category')
             ->orderBy('display_order')
             ->get()
