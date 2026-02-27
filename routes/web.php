@@ -206,6 +206,30 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/prospects/{prospect}', [\App\Http\Controllers\Web\ProspectController::class, 'show'])
         ->name('prospects.show');
     
+    // System Settings (Super Admin Only)
+    Route::prefix('settings')->group(function () {
+        Route::get('/', [\App\Http\Controllers\SettingsController::class, 'index'])
+            ->name('settings.index');
+        Route::put('/{setting}', [\App\Http\Controllers\SettingsController::class, 'update'])
+            ->name('settings.update');
+        Route::post('/bulk-update', [\App\Http\Controllers\SettingsController::class, 'bulkUpdate'])
+            ->name('settings.bulk-update');
+        Route::post('/{setting}/reset', [\App\Http\Controllers\SettingsController::class, 'reset'])
+            ->name('settings.reset');
+        Route::post('/reset-category', [\App\Http\Controllers\SettingsController::class, 'resetCategory'])
+            ->name('settings.reset-category');
+        Route::post('/clear-cache', [\App\Http\Controllers\SettingsController::class, 'clearCache'])
+            ->name('settings.clear-cache');
+        Route::get('/export', [\App\Http\Controllers\SettingsController::class, 'export'])
+            ->name('settings.export');
+        Route::post('/import', [\App\Http\Controllers\SettingsController::class, 'import'])
+            ->name('settings.import');
+    });
+    
+    // Public Settings API
+    Route::get('/api/settings/public', [\App\Http\Controllers\SettingsController::class, 'getPublic'])
+        ->name('api.settings.public');
+    
     // Logout
     Route::post('/logout', function () {
         auth()->logout();
