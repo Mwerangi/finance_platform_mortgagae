@@ -91,6 +91,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/applications/{application}/upload-statement', [\App\Http\Controllers\ApplicationController::class, 'uploadStatement'])
         ->name('applications.upload-statement')
         ->where('application', '[0-9]+');
+    Route::get('/applications/{application}/eligibility-report', [\App\Http\Controllers\ReportController::class, 'generateEligibilityReport'])
+        ->name('applications.eligibility-report')
+        ->where('application', '[0-9]+');
     
     // Resource routes with constraint to only match numeric IDs
     Route::resource('applications', \App\Http\Controllers\ApplicationController::class)
@@ -187,6 +190,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('pre-qualify.retry-analytics');
     Route::get('/pre-qualify/{prospect}/results', [\App\Http\Controllers\Web\ProspectController::class, 'results'])
         ->name('pre-qualify.results');
+    Route::get('/pre-qualify/{prospect}/report', [\App\Http\Controllers\ReportController::class, 'generateProspectReport'])
+        ->name('pre-qualify.report')
+        ->where('prospect', '[0-9]+');
     Route::post('/pre-qualify/{prospect}/amend-and-reassess', [\App\Http\Controllers\Web\ProspectController::class, 'amendAndReassess'])
         ->name('pre-qualify.amend-and-reassess');
     Route::post('/pre-qualify/{prospect}/override-decision', [\App\Http\Controllers\Web\ProspectController::class, 'overrideDecision'])

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pre-Qualification Report</title>
+    <style>
+        @page { margin: 10mm; }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.4;
+            color: #1a1a1a;
+        }
+        
+        /* Compact Header */
+        .header {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            padding: 18px 20px;
+            margin: -10mm -10mm 15px -10mm;
+            color: white;
+        }
+        
+        .header-flex {
+            display: table;
+            width: 100%;
+        }
+        
+        .header-left, .header-right {
+            display: table-cell;
+            vertical-align: middle;
+        }
+        
+        .header-right { text-align: right; }
+        
+        .header h1 {
+            font-size: 16pt;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            margin-bottom: 3px;
+        }
+        
+        .header .sub { font-size: 9pt; opacity: 0.9; }
+        
+        .report-id {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 7pt;
+            display: inline-block;
+            margin-top: 3px;
+        }
+        
+        /* Decision Banner */
+        .decision {
+            margin: 12px 0;
+            padding: 15px 20px;
+            border-radius: 4px;
+            text-align: center;
+            border-left: 5px solid;
+        }
+        
+        .decision.approved {
+            background: #ecfdf5;
+            border-color: #10b981;
+        }
+        
+        .decision.rejected {
+            background: #fef2f2;  
+            border-color: #ef4444;
+        }
+        
+        .decision.conditional {
+            background: #fffbeb;
+            border-color: #f59e0b;
+        }
+        
+        .decision-icon {
+            font-size: 28pt;
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+        
+        .decision.approved .decision-icon { color: #10b981; }
+        .decision.rejected .decision-icon { color: #ef4444; }
+        .decision.conditional .decision-icon { color: #f59e0b; }
+        
+        .decision-title {
+            font-size: 14pt;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .decision.approved .decision-title { color: #065f46; }
+        .decision.rejected .decision-title { color: #991b1b; }
+        .decision.conditional .decision-title { color: #92400e; }
+        
+        .decision-amount {
+            font-size: 13pt;
+            font-weight: 700;
+            margin-top: 8px;
+            padding: 8px 16px;
+            background: white;
+            border-radius: 20px;
+            display: inline-block;
+            color: #1a1a1a;
+        }
+        
+        /* Sections */
+        .section {
+            margin-bottom: 15px;
+            page-break-inside: avoid;
+        }
+        
+        .section-title {
+            font-size: 10pt;
+            font-weight: 800;
+            color: #2563eb;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid #dbeafe;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Compact Info Grid */
+        .grid {
+            display: table;
+            width: 100%;
+            border-spacing: 4px;
+        }
+        
+        .grid-row {
+            display: table-row;
+        }
+        
+        .grid-cell {
+            display: table-cell;
+            width: 50%;
+            padding: 6px 10px;
+            background: #f8fafc;
+            border-left: 2px solid #2563eb;
+        }
+        
+        .label {
+            font-size: 7pt;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 2px;
+        }
+        
+        .value {
+            font-size: 9pt;
+            color: #0f172a;
+            font-weight: 500;
+        }
+        
+        /* Metrics - Inline */
+        .metrics {
+            display: table;
+            width: 100%;
+            margin: 10px 0;
+            border-spacing: 6px 0;
+        }
+        
+        .metric {
+            display: table-cell;
+            width: 25%;
+            padding: 10px;
+            background: #f1f5f9;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .metric-label {
+            font-size: 7pt;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            font-size: 13pt;
+            font-weight: 800;
+            color: #2563eb;
+        }
+        
+        /* Risk Badge */
+        .risk-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 9pt;
+            letter-spacing: 0.5px;
+        }
+        
+        .risk-badge.grade-a { background: #10b981; color: white; }
+        .risk-badge.grade-b { background: #84cc16; color: white; }
+        .risk-badge.grade-c { background: #f59e0b; color: white; }
+        .risk-badge.grade-d { background: #ef4444; color: white; }
+        
+        /* Compact Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+            font-size: 8pt;
+        }
+        
+        table thead th {
+            background: #2563eb;
+            color: white;
+            padding: 8px 10px;
+            text-align: left;
+            font-size: 7pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        table tbody td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        table tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+        
+        table tbody tr.highlight {
+            background: #ecfdf5 !important;
+            font-weight: 700;
+        }
+        
+        /* Conditions */
+        .conditions {
+            background: #fffbeb;
+            padding: 10px 15px;
+            border-left: 3px solid #f59e0b;
+            border-radius: 3px;
+            margin: 8px 0;
+        }
+        
+        .conditions-title {
+            font-size: 8pt;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        
+        .conditions ul {
+            margin: 0;
+            padding-left: 16px;
+        }
+        
+        .conditions li {
+            margin-bottom: 3px;
+            color: #92400e;
+            font-size: 8pt;
+            line-height: 1.3;
+        }
+        
+        /* Footer */
+        .footer {
+            margin-top: 20px;
+            padding: 10px 0;
+            border-top: 2px solid #e2e8f0;
+            text-align: center;
+            font-size: 7pt;
+            color: #64748b;
+        }
+        
+        .footer-brand {
+            font-size: 9pt;
+            font-weight: 700;
+            color: #2563eb;
+            margin-bottom: 4px;
+        }
+        
+        .text-right { text-align: right; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-flex">
+            <div class="header-left">
+                <h1>PRE-QUALIFICATION REPORT</h1>
+                <div class="sub">{{ $institution->name ?? 'Financial Institution' }}</div>
+            </div>
+            <div class="header-right">
+                <div>{{ $generated_at->format('d M Y, H:i') }}</div>
+                <div class="report-id">ID: #{{ $prospect->id }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Decision Banner -->
+    <div class="decision {{ strtolower($assessment->system_decision) }}">
+        <div class="decision-icon">
+            @if($assessment->system_decision === 'approved')
+                ✓
+            @elseif($assessment->system_decision === 'conditional')
+                !
+            @else
+                ✗
+            @endif
+        </div>
+        <div class="decision-title">
+            @if($assessment->system_decision === 'approved')
+                PRE-QUALIFIED
+            @elseif($assessment->system_decision === 'conditional')
+                CONDITIONALLY PRE-QUALIFIED
+            @else
+                NOT PRE-QUALIFIED
+            @endif
+        </div>
+        @if($assessment->final_max_loan)
+            <div class="decision-amount">TZS {{ number_format($assessment->final_max_loan, 0) }}</div>
+        @endif
+    </div>
+
+    <!-- Applicant Info -->
+    <div class="section">
+        <div class="section-title">Applicant</div>
+        <div class="grid">
+            <div class="grid-row">
+                <div class="grid-cell">
+                    <span class="label">Full Name</span>
+                    <span class="value">{{ $prospect->first_name }} {{ $prospect->middle_name }} {{ $prospect->last_name }}</span>
+                </div>
+                <div class="grid-cell">
+                    <span class="label">ID Number</span>
+                    <span class="value">{{ $prospect->id_number }}</span>
+                </div>
+            </div>
+            <div class="grid-row">
+                <div class="grid-cell">
+                    <span class="label">Phone</span>
+                    <span class="value">{{ $prospect->phone }}</span>
+                </div>
+                <div class="grid-cell">
+                    <span class="label">Email</span>
+                    <span class="value">{{ $prospect->email ?? 'N/A' }}</span>
+                </div>
+            </div>
+            <div class="grid-row">
+                <div class="grid-cell">
+                    <span class="label">Customer Type</span>
+                    <span class="value">{{ $prospect->customer_type->label() }}</span>
+                </div>
+                <div class="grid-cell">
+                    <span class="label">Date Applied</span>
+                    <span class="value">{{ $prospect->created_at->format('d M Y') }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loan Request -->
+    <div class="section">
+        <div class="section-title">Loan Request</div>
+        <div class="grid">
+            <div class="grid-row">
+                <div class="grid-cell">
+                    <span class="label">Requested Amount</span>
+                    <span class="value">TZS {{ number_format($prospect->requested_amount, 0) }}</span>
+                </div>
+                <div class="grid-cell">
+                    <span class="label">Tenure</span>
+                    <span class="value">{{ $prospect->requested_tenure }} months</span>
+                </div>
+            </div>
+            <div class="grid-row">
+                <div class="grid-cell">
+                    <span class="label">Property Value</span>
+                    <span class="value">TZS {{ number_format($prospect->property_value, 0) }}</span>
+                </div>
+                <div class="grid-cell">
+                    <span class="label">LTV Ratio</span>
+                    <span class="value">{{ number_format(($prospect->requested_amount / $prospect->property_value) * 100, 1) }}%</span>
+                </div>
+            </div>
+            <div class="grid-row">
+                <div class="grid-cell">
+                    <span class="label">Property Location</span>
+                    <span class="value">{{ $prospect->property_location }}</span>
+                </div>
+                <div class="grid-cell">
+                    <span class="label">Loan Product</span>
+                    <span class="value">{{ $product->name ?? 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Metrics -->
+    <div class="section">
+        <div class="section-title">Financial Assessment</div>
+        <div class="metrics">
+            <div class="metric">
+                <div class="metric-label">Income</div>
+                <div class="metric-value">{{ number_format($assessment->verified_monthly_income ?? 0, 0) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Debt</div>
+                <div class="metric-value">{{ number_format($assessment->total_monthly_debt ?? 0, 0) }}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">DTI</div>
+                <div class="metric-value">{{ number_format($assessment->debt_to_income_ratio ?? 0, 1) }}%</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">DSR</div>
+                <div class="metric-value">{{ number_format($assessment->debt_service_ratio ?? 0, 1) }}%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Assessment -->
+    @if($assessment->risk_grade)
+    <div class="section">
+        <div class="section-title">Risk Profile</div>
+        <div class="grid">
+            <div class="grid-row">
+                <div class="grid-cell">
+                    <span class="label">Risk Grade</span>
+                    <span class="value">
+                        <span class="risk-badge grade-{{ strtolower($assessment->risk_grade) }}">
+                            GRADE {{ strtoupper($assessment->risk_grade) }}
+                        </span>
+                    </span>
+                </div>
+                <div class="grid-cell">
+                    <span class="label">Risk Score</span>
+                    <span class="value">{{ $assessment->risk_score ?? 'N/A' }}/100</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Financial Details -->
+    @if($assessment->verified_monthly_income || $assessment->total_monthly_debt || $assessment->monthly_surplus)
+    <div class="section">
+        <div class="section-title">Financial Details</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Description</th>
+                    <th class="text-right">Amount (TZS)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if($assessment->verified_monthly_income)
+                <tr>
+                    <td><strong>Verified Income</strong></td>
+                    <td>Monthly income from bank statement</td>
+                    <td class="text-right"><strong>{{ number_format($assessment->verified_monthly_income, 0) }}</strong></td>
+                </tr>
+                @endif
+                @if($assessment->total_monthly_debt)
+                <tr>
+                    <td><strong>Total Debt</strong></td>
+                    <td>Existing monthly obligations</td>
+                    <td class="text-right"><strong>{{ number_format($assessment->total_monthly_debt, 0) }}</strong></td>
+                </tr>
+                @endif
+                @if($assessment->monthly_surplus)
+                <tr class="highlight">
+                    <td><strong>Monthly Surplus</strong></td>
+                    <td>Available for loan repayment</td>
+                    <td class="text-right"><strong>{{ number_format($assessment->monthly_surplus, 0) }}</strong></td>
+                </tr>
+                @endif
+            </tbody>
+        </table>
+    </div>
+    @endif
+
+    <!-- Conditions -->
+    @if($assessment->system_decision === 'conditional' && $assessment->conditions)
+    <div class="section">
+        <div class="section-title">Conditions</div>
+        <div class="conditions">
+            <div class="conditions-title">The following conditions must be met:</div>
+            <ul>
+                @php 
+                    $conditions = is_string($assessment->conditions) ? json_decode($assessment->conditions, true) : $assessment->conditions;
+                @endphp
+                @foreach($conditions as $condition)
+                    <li>{{ is_array($condition) ? ($condition['description'] ?? $condition['condition'] ?? 'N/A') : $condition }}</li>
+                @endforeach
+            </ul>
+        </div>
+    </div>
+    @endif
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="footer-brand">{{ $institution->name ?? 'Financial Institution' }}</div>
+        <div>This automated pre-qualification report is valid for 30 days. Final approval subject to full application review and verification.</div>
+        <div style="margin-top: 6px; color: #94a3b8;">Report #{{ $assessment->id }} • Generated {{ $generated_at->format('d M Y, H:i:s') }}</div>
+    </div>
+</body>
+</html>

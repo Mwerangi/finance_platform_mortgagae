@@ -306,7 +306,20 @@
         <!-- Eligibility Assessment Report - Full Width -->
         <div class="row" v-if="latestEligibility">
           <div class="col-12">
-            <Card header="Eligibility Assessment" class="mb-4">
+            <Card class="mb-4">
+              <template #header>
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="card-title mb-0">Eligibility Assessment</h5>
+                  <a 
+                    :href="`/applications/${application.id}/eligibility-report`"
+                    class="btn btn-sm btn-outline-primary"
+                    @click="downloadReport"
+                  >
+                    <i class="bi bi-file-pdf me-1"></i>Download Report
+                  </a>
+                </div>
+              </template>
+              
               <div class="alert mb-3" :class="{
                 'alert-success': latestEligibility.system_decision === 'approved',
                 'alert-danger': latestEligibility.system_decision === 'rejected',
@@ -926,6 +939,11 @@ const startReview = () => {
   if (confirm('Start reviewing this application? This will mark it as under review.')) {
     router.post(`/applications/${props.application.id}/start-review`);
 }
+};
+
+const downloadReport = (event) => {
+  event.preventDefault();
+  window.location.href = `/applications/${props.application.id}/eligibility-report`;
 };
 
 const approveApplication = () => {

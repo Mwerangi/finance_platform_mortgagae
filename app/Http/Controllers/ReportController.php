@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Application;
+use App\Models\Prospect;
 use App\Services\ReportService;
 use App\Services\ExportService;
 use App\Services\DashboardService;
@@ -20,10 +22,29 @@ class ReportController extends Controller
 
     /**
      * Generate eligibility report PDF.
+     * Supports both API route (applicationId only) and web route (Application model).
      */
-    public function generateEligibilityReport(Request $request, int $institutionId, int $applicationId): BinaryFileResponse|JsonResponse
+    public function generateEligibilityReport(Request $request, $institutionIdOrApplication, ?int $applicationId = null): BinaryFileResponse|JsonResponse
     {
         try {
+            // Handle web route with Application model binding
+            if ($institutionIdOrApplication instanceof Application) {
+                $application = $institutionIdOrApplication;
+                $institutionId = $application->institution_id;
+                $applicationId = $application->id;
+            } else {
+                // Handle API route - first parameter is applicationId when second is null
+                if ($applicationId === null) {
+                    $applicationId = $institutionIdOrApplication;
+                    // Load application to get institution_id
+                    $application = Application::findOrFail($applicationId);
+                    $institutionId = $application->institution_id;
+                } else {
+                    // Legacy support: both institutionId and applicationId provided
+                    $institutionId = $institutionIdOrApplication;
+                }
+            }
+            
             $filePath = $this->reportService->generateEligibilityReport($institutionId, $applicationId);
             
             return response()->download($filePath, basename($filePath), [
@@ -32,6 +53,25 @@ class ReportController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to generate eligibility report',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate prospect/pre-qualification eligibility report PDF.
+     */
+    public function generateProspectReport(Request $request, Prospect $prospect): BinaryFileResponse|JsonResponse
+    {
+        try {
+            $filePath = $this->reportService->generateProspectReport($prospect->id);
+            
+            return response()->download($filePath, basename($filePath), [
+                'Content-Type' => 'application/pdf'
+            ])->deleteFileAfterSend(true);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to generate prospect report',
                 'error' => $e->getMessage()
             ], 500);
         }

@@ -58,7 +58,10 @@ class ParseBankStatementJob implements ShouldQueue
             $headerRow = null;
             $headerIndex = 0;
             foreach ($data as $index => $row) {
-                $rowLower = array_map('strtolower', array_map(fn($v) => trim($v ?? ''), $row));
+                // Normalize column names: trim, lowercase, collapse multiple spaces
+                $rowLower = array_map(function($v) {
+                    return preg_replace('/\s+/', ' ', strtolower(trim($v ?? '')));
+                }, $row);
                 // Look for rows containing transaction/date headers
                 if (in_array('date', $rowLower) || 
                     in_array('trans date', $rowLower) || 

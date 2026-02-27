@@ -902,7 +902,7 @@ const confirmConversion = () => {
 };
 
 const downloadReport = () => {
-    alert('Download report feature coming soon!');
+    window.location.href = `/pre-qualify/${props.prospect.id}/report`;
 };
 
 const closeAmendModal = () => {

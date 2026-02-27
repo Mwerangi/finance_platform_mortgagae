@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Application;
+use App\Models\Prospect;
 use App\Models\EligibilityAssessment;
 use App\Models\Institution;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -13,17 +14,20 @@ class ReportService
     /**
      * Generate eligibility decision report PDF.
      */
-    public function generateEligibilityReport(int $applicationId): string
+    public function generateEligibilityReport(int $institutionId, int $applicationId): string
     {
         $application = Application::with([
             'customer',
             'loanProduct',
             'institution',
             'bankStatementImports.analytics',
+            'statementAnalytics',
             'eligibilityAssessments' => function ($query) {
-                $query->latest()->first();
-            }
-        ])->findOrFail($applicationId);
+                $query->latest();
+            },
+            'latestUnderwritingDecision'
+        ])->where('institution_id', $institutionId)
+          ->findOrFail($applicationId);
 
         $latestAssessment = $application->eligibilityAssessments->first();
         
@@ -31,12 +35,18 @@ class ReportService
             throw new \Exception('No eligibility assessment found for this application');
         }
 
+        // Get statement analytics if available
+        $analytics = $application->statementAnalytics->first() 
+            ?? $application->bankStatementImports->first()?->analytics;
+
         $data = [
             'application' => $application,
             'assessment' => $latestAssessment,
             'customer' => $application->customer,
             'product' => $application->loanProduct,
             'institution' => $application->institution,
+            'analytics' => $analytics,
+            'underwritingDecision' => $application->latestUnderwritingDecision,
             'generated_at' => now(),
         ];
 
@@ -48,7 +58,65 @@ class ReportService
             $pdf->setOption('margin-bottom', 20);
         }
 
+        // Ensure reports directory exists
+        $reportsDir = storage_path('app/reports');
+        if (!file_exists($reportsDir)) {
+            mkdir($reportsDir, 0755, true);
+        }
+
         $filename = "eligibility_report_{$application->application_number}_" . now()->format('Ymd_His') . ".pdf";
+        $path = storage_path("app/reports/{$filename}");
+        
+        $pdf->save($path);
+        
+        return $path;
+    }
+
+    /**
+     * Generate prospect/pre-qualification eligibility report PDF.
+     */
+    public function generateProspectReport(int $prospectId): string
+    {
+        $prospect = Prospect::with([
+            'institution',
+            'loanProduct',
+            'statementImport.analytics',
+            'eligibilityAssessment'
+        ])->findOrFail($prospectId);
+
+        $assessment = $prospect->eligibilityAssessment;
+        
+        if (!$assessment) {
+            throw new \Exception('No eligibility assessment found for this prospect');
+        }
+        
+        if (!$prospect->institution) {
+            throw new \Exception('Institution information not found for this prospect');
+        }
+
+        $data = [
+            'prospect' => $prospect,
+            'assessment' => $assessment,
+            'institution' => $prospect->institution,
+            'product' => $prospect->loanProduct,
+            'generated_at' => now(),
+        ];
+
+        $pdf = Pdf::loadView('reports.prospect-eligibility', $data);
+        
+        // Apply institution branding if available
+        if ($prospect->institution && $prospect->institution->branding) {
+            $pdf->setOption('margin-top', 20);
+            $pdf->setOption('margin-bottom', 20);
+        }
+
+        // Ensure reports directory exists
+        $reportsDir = storage_path('app/reports');
+        if (!file_exists($reportsDir)) {
+            mkdir($reportsDir, 0755, true);
+        }
+
+        $filename = "prequalification_report_{$prospect->id}_" . now()->format('Ymd_His') . ".pdf";
         $path = storage_path("app/reports/{$filename}");
         
         $pdf->save($path);
