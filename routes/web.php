@@ -205,6 +205,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('prospects.index');
     Route::get('/prospects/{prospect}', [\App\Http\Controllers\Web\ProspectController::class, 'show'])
         ->name('prospects.show');
+    Route::delete('/prospects/{prospect}', [\App\Http\Controllers\Web\ProspectController::class, 'destroy'])
+        ->name('prospects.destroy');
     
     // System Settings (Super Admin Only)
     Route::prefix('settings')->group(function () {

@@ -1,0 +1,203 @@
+
+UNDERWRITING INTELLIGENCE REPORT - TECHNICAL SPECIFICATION
+White-Label Mortgage Eligibility & Risk Platform (V1)
+
+============================================================
+1. REPORT NAME
+============================================================
+
+MortgageUnderwritingIntelligenceReport
+
+Generated after:
+- Statement analytics complete
+- Eligibility assessment complete
+- Risk scoring complete
+
+============================================================
+2. TOP-LEVEL REPORT STRUCTURE (JSON MODEL)
+============================================================
+
+{
+  "application_summary": {},
+  "cashflow_summary": {},
+  "income_composition": {},
+  "loan_detection": {},
+  "bulk_deposit_analysis": {},
+  "behavioral_analysis": {},
+  "eligibility_results": {},
+  "risk_scoring": {},
+  "stress_test_results": {},
+  "final_recommendation": {}
+}
+
+============================================================
+3. SECTION DEFINITIONS
+============================================================
+
+3.1 application_summary
+
+{
+  "applicant_name": "",
+  "customer_type": "salary | business",
+  "loan_product": "",
+  "requested_amount": 0,
+  "requested_tenure_months": 0,
+  "property_value": 0,
+  "requested_ltv": 0,
+  "requested_dsr": 0
+}
+
+3.2 cashflow_summary
+
+{
+  "analysis_period_months": 12,
+  "total_credit_amount": 0,
+  "total_debit_amount": 0,
+  "net_movement": 0,
+  "average_monthly_credit": 0,
+  "average_monthly_debit": 0,
+  "average_net_surplus_or_income": 0
+}
+
+3.3 income_composition
+
+{
+  "salary_amount": 0,
+  "salary_percentage": 0,
+  "business_income_amount": 0,
+  "business_income_percentage": 0,
+  "loan_inflows_amount": 0,
+  "loan_inflows_percentage": 0,
+  "bulk_deposit_amount": 0,
+  "bulk_deposit_percentage": 0,
+  "other_transfers_amount": 0,
+  "other_transfers_percentage": 0
+}
+
+3.4 loan_detection
+
+{
+  "detected_monthly_loan_repayment": 0,
+  "detected_loan_count": 0,
+  "loan_repayment_patterns": [
+    {
+      "description_pattern": "",
+      "estimated_monthly_amount": 0,
+      "confidence_score": 0
+    }
+  ],
+  "loan_stacking_indicator": "low | moderate | high"
+}
+
+3.5 bulk_deposit_analysis
+
+{
+  "bulk_deposit_count": 0,
+  "bulk_deposit_total": 0,
+  "bulk_deposit_percentage_of_total_credit": 0,
+  "bulk_deposit_sources": [
+    {
+      "category": "loan | cash_deposit | transfer | unknown",
+      "amount": 0
+    }
+  ],
+  "bulk_deposit_risk_flag": true
+}
+
+3.6 behavioral_analysis
+
+{
+  "average_credit_transactions_per_month": 0,
+  "average_debit_transactions_per_month": 0,
+  "cash_withdrawal_ratio": 0,
+  "volatility_score": 0,
+  "income_stability_score": 0,
+  "behavioral_risk_level": "low | moderate | high"
+}
+
+3.7 eligibility_results
+
+{
+  "net_income_or_surplus_used": 0,
+  "existing_monthly_debt": 0,
+  "dti": 0,
+  "dsr_proposed": 0,
+  "max_installment_allowed": 0,
+  "max_loan_affordability": 0,
+  "max_loan_ltv": 0,
+  "max_loan_final": 0
+}
+
+3.8 risk_scoring
+
+{
+  "overall_risk_score": 0,
+  "risk_grade": "A | B | C | D | E",
+  "component_scores": {
+    "affordability_score": 0,
+    "income_stability_score": 0,
+    "debt_behavior_score": 0,
+    "deposit_quality_score": 0,
+    "behavioral_score": 0
+  },
+  "top_risk_drivers": [],
+  "strength_indicators": []
+}
+
+3.9 stress_test_results
+
+{
+  "income_drop_20_percent": {
+    "new_dsr": 0,
+    "risk_impact": ""
+  },
+  "rate_increase_3_percent": {
+    "new_installment": 0,
+    "risk_impact": ""
+  }
+}
+
+3.10 final_recommendation
+
+{
+  "system_decision": "eligible | conditional | outside_policy",
+  "recommended_loan_amount": 0,
+  "recommended_conditions": [],
+  "requires_supervisor_override": false
+}
+
+============================================================
+4. REQUIRED SERVICES
+============================================================
+
+StatementAnalyticsService
+LoanDetectionService
+BulkDepositAnalysisService
+BehavioralAnalysisService
+EligibilityEngineService
+RiskScoringService
+StressTestService
+UnderwritingReportAssembler
+
+============================================================
+5. WORKFLOW
+============================================================
+
+1. Upload bank statement (Excel).
+2. Run StatementAnalyticsService.
+3. Run EligibilityEngineService.
+4. Run RiskScoringService.
+5. Run StressTestService.
+6. Assemble report using UnderwritingReportAssembler.
+7. Store final report JSON in underwriting_reports table.
+8. Version report per assessment.
+
+============================================================
+6. CONFIGURATION RULES
+============================================================
+
+- All thresholds configurable per institution.
+- All scoring weights configurable.
+- All calculations must be explainable (no hidden logic).
+- Store raw inputs before transformation.
+- Each report must store assessment_version.

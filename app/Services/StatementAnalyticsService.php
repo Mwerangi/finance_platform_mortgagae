@@ -33,22 +33,37 @@ class StatementAnalyticsService
         // Compute monthly aggregations
         $monthlyData = $this->computeMonthlyAggregations($monthlyGroups);
 
-        // Compute income analysis
-        $incomeAnalysis = $this->analyzeIncome($transactions, $monthlyData);
+        // === NEW: Transaction Summary ===
+        $transactionSummary = $this->computeTransactionSummary($transactions);
 
-        // Compute debt analysis
-        $debtAnalysis = $this->analyzeDebts($transactions);
+        // === NEW: Advanced Loan Detection ===
+        $loanDetection = $this->detectLoans($transactions);
+
+        // === NEW: Income Source Composition ===
+        $incomeComposition = $this->analyzeIncomeComposition($transactions, $loanDetection);
+
+        // Compute income analysis (enhanced with composition data)
+        $incomeAnalysis = $this->analyzeIncome($transactions, $monthlyData, $incomeComposition);
+
+        // Compute debt analysis (enhanced with loan detection)
+        $debtAnalysis = $this->analyzeDebts($transactions, $loanDetection);
+
+        // === NEW: Bulk Deposit Analysis ===
+        $bulkDepositAnalysis = $this->analyzeBulkDeposits($transactions, $incomeComposition);
 
         // Compute risk metrics
         $riskMetrics = $this->computeRiskMetrics($transactions, $monthlyData);
 
-        // Determine overall risk assessment
-        $overallRisk = $this->assessOverallRisk($riskMetrics, $incomeAnalysis);
+        // === NEW: Behavioral Analysis ===
+        $behavioralAnalysis = $this->analyzeBehavior($transactions, $monthlyData);
 
-        // Compute ratios
+        // Determine overall risk assessment
+        $overallRisk = $this->assessOverallRisk($riskMetrics, $incomeAnalysis, $behavioralAnalysis, $loanDetection);
+
+        // Compute ratios (enhanced with detected loans)
         $ratios = $this->computeRatios($incomeAnalysis, $debtAnalysis);
 
-        return [
+        return array_merge([
             'analysis_months' => $monthlyGroups->count(),
             'analysis_start_date' => $transactions->first()->transaction_date,
             'analysis_end_date' => $transactions->last()->transaction_date,
@@ -60,26 +75,39 @@ class StatementAnalyticsService
             'avg_net_surplus' => $monthlyData['avg_net_surplus'],
             'opening_balance' => $transactions->first()->balance,
             'closing_balance' => $transactions->last()->balance,
+        ], 
+        $transactionSummary,
+        [
             'income_classification' => $incomeAnalysis['classification'],
             'estimated_net_income' => $incomeAnalysis['estimated_income'],
             'income_stability_score' => $incomeAnalysis['stability_score'],
             'has_regular_salary' => $incomeAnalysis['has_salary'],
             'has_business_income' => $incomeAnalysis['has_business'],
             'income_sources' => $incomeAnalysis['sources'],
+        ],
+        $incomeComposition,
+        [
             'total_debt_obligations' => $debtAnalysis['total_debt'],
             'estimated_monthly_debt' => $debtAnalysis['monthly_debt'],
             'debt_payment_count' => $debtAnalysis['payment_count'],
             'detected_debts' => $debtAnalysis['detected_debts'],
+        ],
+        $loanDetection,
+        $bulkDepositAnalysis,
+        [
             'cash_flow_volatility_score' => $riskMetrics['volatility_score'],
             'negative_balance_days' => $riskMetrics['negative_balance_days'],
             'bounce_count' => $riskMetrics['bounce_count'],
             'gambling_transaction_count' => $riskMetrics['gambling_count'],
             'large_unexplained_outflows' => $riskMetrics['large_outflows'],
             'risk_flags' => $riskMetrics['flags'],
+        ],
+        $behavioralAnalysis,
+        [
             'overall_risk_assessment' => $overallRisk,
             'debt_to_income_ratio' => $ratios['dti'],
             'disposable_income_ratio' => $ratios['disposable'],
-        ];
+        ]);
     }
 
     /**
@@ -114,7 +142,7 @@ class StatementAnalyticsService
     /**
      * Analyze income patterns.
      */
-    private function analyzeIncome(Collection $transactions, array $monthlyData): array
+    private function analyzeIncome(Collection $transactions, array $monthlyData, array $incomeComposition = []): array
     {
         $incomeTransactions = $transactions->where('is_income', true);
 
@@ -237,7 +265,7 @@ class StatementAnalyticsService
     /**
      * Analyze debt obligations.
      */
-    private function analyzeDebts(Collection $transactions): array
+    private function analyzeDebts(Collection $transactions, array $loanDetection = []): array
     {
         $debtKeywords = ['loan', 'credit', 'repayment', 'installment', 'mortgage', 'azam'];
         
@@ -265,7 +293,11 @@ class StatementAnalyticsService
 
         $paymentCount = count($debtPayments);
         $monthsCovered = $transactions->last()->transaction_date->diffInMonths($transactions->first()->transaction_date) + 1;
-        $monthlyDebt = $monthsCovered > 0 ? $totalDebtAmount / $monthsCovered : 0;
+        
+        // Use detected monthly loan repayment if available, otherwise estimate
+        $monthlyDebt = !empty($loanDetection) && $loanDetection['total_monthly_repayment'] > 0
+            ? $loanDetection['total_monthly_repayment']
+            : ($monthsCovered > 0 ? $totalDebtAmount / $monthsCovered : 0);
 
         // Group by similar amounts to detect recurring debts
         $detectedDebts = [];
@@ -372,7 +404,7 @@ class StatementAnalyticsService
     /**
      * Assess overall risk level.
      */
-    private function assessOverallRisk(array $riskMetrics, array $incomeAnalysis): string
+    private function assessOverallRisk(array $riskMetrics, array $incomeAnalysis, array $behavioralAnalysis = [], array $loanDetection = []): string
     {
         $riskScore = 0;
 
@@ -409,6 +441,20 @@ class StatementAnalyticsService
             $riskScore += 10;
         } elseif ($incomeAnalysis['stability_score'] < 60) {
             $riskScore += 5;
+        }
+
+        // === NEW: Loan stacking penalty (0-15 points) ===
+        if (!empty($loanDetection) && $loanDetection['loan_stacking_detected']) {
+            $riskScore += 15;
+        }
+
+        // === NEW: Behavioral risk (0-10 points) ===
+        if (!empty($behavioralAnalysis)) {
+            if ($behavioralAnalysis['behavioral_risk_level'] === 'high') {
+                $riskScore += 10;
+            } elseif ($behavioralAnalysis['behavioral_risk_level'] === 'medium') {
+                $riskScore += 5;
+            }
         }
 
         // Assess risk level
@@ -450,4 +496,368 @@ class StatementAnalyticsService
 
         return sqrt($variance);
     }
+
+    /**
+     * ============================================================
+     * NEW METHODS FOR ADVANCED UNDERWRITING INTELLIGENCE
+     * ============================================================
+     */
+
+    /**
+     * 1. Compute transaction summary (total credits, debits, counts, averages)
+     */
+    private function computeTransactionSummary(Collection $transactions): array
+    {
+        $credits = $transactions->where('credit', '>', 0);
+        $debits = $transactions->where('debit', '>', 0);
+
+        $totalCredits = $credits->sum('credit');
+        $totalDebits = $debits->sum('debit');
+        $creditCount = $credits->count();
+        $debitCount = $debits->count();
+
+        return [
+            'total_credits' => round($totalCredits, 2),
+            'total_debits' => round($totalDebits, 2),
+            'total_credit_count' => $creditCount,
+            'total_debit_count' => $debitCount,
+            'avg_credit_amount' => $creditCount > 0 ? round($totalCredits / $creditCount, 2) : 0,
+            'avg_debit_amount' => $debitCount > 0 ? round($totalDebits / $debitCount, 2) : 0,
+        ];
+    }
+
+    /**
+     * 2. Detect loans using LoanDetectionService
+     */
+    private function detectLoans(Collection $transactions): array
+    {
+        // Transform transactions to format expected by LoanDetectionService
+        $transformedTransactions = $transactions->map(function ($transaction) {
+            return [
+                'date' => $transaction->transaction_date->format('Y-m-d'),
+                'description' => $transaction->description ?? '',
+                'debit' => $transaction->debit ?? 0,
+                'credit' => $transaction->credit ?? 0,
+            ];
+        });
+
+        $loanDetectionService = new LoanDetectionService();
+        $loanResults = $loanDetectionService->detectLoans(collect($transformedTransactions));
+
+        return [
+            'detected_loan_count' => $loanResults['loan_count'],
+            'detected_monthly_loan_repayment' => round($loanResults['total_monthly_repayment'], 2),
+            'detected_loans' => $loanResults['detected_loans'],
+            'loan_stacking_detected' => $loanResults['loan_stacking_detected'],
+            'loan_detection_confidence' => $loanResults['confidence'],
+            'loan_inflows' => round($loanResults['loan_inflows'], 2),
+        ];
+    }
+
+    /**
+     * 3. Analyze income source composition
+     */
+    private function analyzeIncomeComposition(Collection $transactions, array $loanDetection): array
+    {
+        $credits = $transactions->where('credit', '>', 0);
+        
+        $salaryIncome = 0;
+        $businessIncome = 0;
+        $transferInflows = 0;
+        $otherIncome = 0;
+
+        // Keywords for classification
+        $salaryKeywords = ['salary', 'wage', 'payroll', 'employer', 'employment', 'tra', 'nssf'];
+        $businessKeywords = ['sales', 'invoice', 'payment received', 'pos', 'till', 'merchant'];
+        $transferKeywords = ['transfer', 'mpesa', 'tigopesa', 'airtel money', 'halopesa', 'tpesa'];
+
+        $incomeBreakdown = [];
+
+        foreach ($credits as $transaction) {
+            $description = strtolower($transaction->description ?? '');
+            $amount = $transaction->credit;
+            $classified = false;
+
+            // Check for salary
+            foreach ($salaryKeywords as $keyword) {
+                if (stripos($description, $keyword) !== false) {
+                    $salaryIncome += $amount;
+                    $incomeBreakdown[] = [
+                        'date' => $transaction->transaction_date->format('Y-m-d'),
+                        'amount' => $amount,
+                        'source' => 'salary',
+                        'description' => $transaction->description,
+                    ];
+                    $classified = true;
+                    break;
+                }
+            }
+
+            if ($classified) continue;
+
+            // Check for business income
+            foreach ($businessKeywords as $keyword) {
+                if (stripos($description, $keyword) !== false) {
+                    $businessIncome += $amount;
+                    $incomeBreakdown[] = [
+                        'date' => $transaction->transaction_date->format('Y-m-d'),
+                        'amount' => $amount,
+                        'source' => 'business',
+                        'description' => $transaction->description,
+                    ];
+                    $classified = true;
+                    break;
+                }
+            }
+
+            if ($classified) continue;
+
+            // Check for transfers
+            foreach ($transferKeywords as $keyword) {
+                if (stripos($description, $keyword) !== false) {
+                    $transferInflows += $amount;
+                    $incomeBreakdown[] = [
+                        'date' => $transaction->transaction_date->format('Y-m-d'),
+                        'amount' => $amount,
+                        'source' => 'transfer',
+                        'description' => $transaction->description,
+                    ];
+                    $classified = true;
+                    break;
+                }
+            }
+
+            if ($classified) continue;
+
+            // Everything else is "other"
+            $otherIncome += $amount;
+            $incomeBreakdown[] = [
+                'date' => $transaction->transaction_date->format('Y-m-d'),
+                'amount' => $amount,
+                'source' => 'other',
+                'description' => $transaction->description,
+            ];
+        }
+
+        // Get bulk deposits and loan inflows from detection
+        $bulkDeposits = $this->calculateBulkDepositsTotal($credits);
+        $loanInflows = $loanDetection['loan_inflows'] ?? 0;
+
+        return [
+            'salary_income' => round($salaryIncome, 2),
+            'business_income' => round($businessIncome, 2),
+            'loan_inflows' => round($loanInflows, 2),
+            'bulk_deposits' => round($bulkDeposits, 2),
+            'transfer_inflows' => round($transferInflows, 2),
+            'other_income' => round($otherIncome, 2),
+            'income_composition_breakdown' => $incomeBreakdown,
+        ];
+    }
+
+    /**
+     * Helper to calculate bulk deposits total
+     */
+    private function calculateBulkDepositsTotal(Collection $credits): float
+    {
+        if ($credits->isEmpty()) {
+            return 0;
+        }
+
+        $avgCredit = $credits->avg('credit');
+        $threshold = $avgCredit * 3; // 3x average is considered "bulk"
+
+        return $credits->where('credit', '>', $threshold)->sum('credit');
+    }
+
+    /**
+     * 4. Analyze bulk deposits
+     */
+    private function analyzeBulkDeposits(Collection $transactions, array $incomeComposition): array
+    {
+        $credits = $transactions->where('credit', '>', 0);
+
+        if ($credits->isEmpty()) {
+            return [
+                'bulk_deposit_count' => 0,
+                'largest_single_deposit' => 0,
+                'bulk_deposit_details' => [],
+                'suspicious_deposits_flagged' => false,
+            ];
+        }
+
+        $avgCredit = $credits->avg('credit');
+        $avgMonthlyIncome = $incomeComposition['salary_income'] > 0 
+            ? $incomeComposition['salary_income'] 
+            : $avgCredit;
+
+        // Define bulk deposit threshold (3x average OR 50% of monthly income)
+        $threshold = max($avgCredit * 3, $avgMonthlyIncome * 0.5);
+
+        $bulkDeposits = $credits->where('credit', '>', $threshold);
+        $largestDeposit = $credits->max('credit');
+
+        $bulkDepositDetails = [];
+        $suspiciousCount = 0;
+
+        foreach ($bulkDeposits as $deposit) {
+            $description = strtolower($deposit->description ?? '');
+            
+            // Categorize source
+            $source = 'unknown';
+            $suspicious = false;
+
+            $loanKeywords = ['loan', 'mkopo', 'disbursement', 'advance'];
+            $salaryKeywords = ['salary', 'wage', 'payroll'];
+            $transferKeywords = ['transfer', 'mpesa'];
+
+            foreach ($loanKeywords as $keyword) {
+                if (stripos($description, $keyword) !== false) {
+                    $source = 'loan';
+                    break;
+                }
+            }
+
+            if ($source === 'unknown') {
+                foreach ($salaryKeywords as $keyword) {
+                    if (stripos($description, $keyword) !== false) {
+                        $source = 'salary';
+                        break;
+                    }
+                }
+            }
+
+            if ($source === 'unknown') {
+                foreach ($transferKeywords as $keyword) {
+                    if (stripos($description, $keyword) !== false) {
+                        $source = 'transfer';
+                        break;
+                    }
+                }
+            }
+
+            // Flag as suspicious if source unknown and amount > monthly income
+            if ($source === 'unknown' && $deposit->credit > $avgMonthlyIncome) {
+                $suspicious = true;
+                $suspiciousCount++;
+            }
+
+            $bulkDepositDetails[] = [
+                'date' => $deposit->transaction_date->format('Y-m-d'),
+                'amount' => round($deposit->credit, 2),
+                'description' => $deposit->description,
+                'source' => $source,
+                'suspicious' => $suspicious,
+                'reason' => $suspicious ? 'Large unexplained deposit' : null,
+            ];
+        }
+
+        return [
+            'bulk_deposit_count' => $bulkDeposits->count(),
+            'largest_single_deposit' => round($largestDeposit, 2),
+            'bulk_deposit_details' => $bulkDepositDetails,
+            'suspicious_deposits_flagged' => $suspiciousCount > 0,
+        ];
+    }
+
+    /**
+     * 5. Analyze transaction behavior and patterns
+     */
+    private function analyzeBehavior(Collection $transactions, array $monthlyData): array
+    {
+        if ($transactions->isEmpty()) {
+            return [
+                'transaction_frequency_score' => 0,
+                'cash_withdrawal_ratio' => 0,
+                'income_volatility_coefficient' => 0,
+                'transaction_pattern' => 'unknown',
+                'behavioral_risk_level' => 'low',
+                'behavioral_flags' => [],
+            ];
+        }
+
+        // Transaction frequency analysis
+        $totalDays = $transactions->last()->transaction_date->diffInDays($transactions->first()->transaction_date) + 1;
+        $transactionsPerDay = $totalDays > 0 ? $transactions->count() / $totalDays : 0;
+        
+        // Normalize to 0-100 scale (assume 5+ transactions/day = 100)
+        $frequencyScore = min(100, round($transactionsPerDay * 20, 2));
+
+        // Cash withdrawal analysis
+        $cashKeywords = ['cash', 'atm', 'withdrawal', 'withdrw'];
+        $cashWithdrawals = 0;
+        $totalDebits = $transactions->sum('debit');
+
+        foreach ($transactions as $transaction) {
+            if ($transaction->debit > 0) {
+                foreach ($cashKeywords as $keyword) {
+                    if (stripos($transaction->description ?? '', $keyword) !== false) {
+                        $cashWithdrawals += $transaction->debit;
+                        break;
+                    }
+                }
+            }
+        }
+
+        $cashWithdrawalRatio = $totalDebits > 0 ? round(($cashWithdrawals / $totalDebits) * 100, 2) : 0;
+
+        // Income volatility (coefficient of variation)
+        $monthlyInflows = collect($monthlyData['inflows'])->pluck('inflow');
+        $avgInflow = $monthlyInflows->avg();
+        $incomeVolatility = $avgInflow > 0 ? round(($this->standardDeviation($monthlyInflows) / $avgInflow) * 100, 2) : 0;
+
+        // Transaction pattern classification
+        $pattern = 'regular';
+        if ($transactionsPerDay < 0.5) {
+            $pattern = 'sporadic';
+        } elseif ($incomeVolatility > 50) {
+            $pattern = 'irregular';
+        }
+
+        // Behavioral risk assessment
+        $behavioralFlags = [];
+        $riskLevel = 'low';
+
+        if ($incomeVolatility > 70) {
+            $behavioralFlags[] = [
+                'flag' => 'high_income_volatility',
+                'value' => $incomeVolatility,
+                'severity' => 'high',
+            ];
+        }
+
+        if ($cashWithdrawalRatio > 70) {
+            $behavioralFlags[] = [
+                'flag' => 'high_cash_withdrawal_ratio',
+                'value' => $cashWithdrawalRatio,
+                'severity' => 'medium',
+            ];
+        }
+
+        if ($pattern === 'sporadic') {
+            $behavioralFlags[] = [
+                'flag' => 'sporadic_transaction_pattern',
+                'severity' => 'medium',
+            ];
+        }
+
+        // Determine overall behavioral risk
+        $highSeverityCount = collect($behavioralFlags)->where('severity', 'high')->count();
+        $mediumSeverityCount = collect($behavioralFlags)->where('severity', 'medium')->count();
+
+        if ($highSeverityCount > 0 || $mediumSeverityCount >= 2) {
+            $riskLevel = 'high';
+        } elseif ($mediumSeverityCount > 0) {
+            $riskLevel = 'medium';
+        }
+
+        return [
+            'transaction_frequency_score' => $frequencyScore,
+            'cash_withdrawal_ratio' => $cashWithdrawalRatio,
+            'income_volatility_coefficient' => $incomeVolatility,
+            'transaction_pattern' => $pattern,
+            'behavioral_risk_level' => $riskLevel,
+            'behavioral_flags' => $behavioralFlags,
+        ];
+    }
 }
+

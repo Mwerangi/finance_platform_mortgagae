@@ -658,4 +658,72 @@ class ProspectController extends Controller
             return back()->with('error', 'Failed to override decision: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Delete a prospect from the system
+     */
+    public function destroy(Prospect $prospect)
+    {
+        // Ensure user can access this prospect
+        if ($prospect->institution_id !== auth()->user()->institution_id) {
+            abort(403);
+        }
+
+        // Prevent deletion of converted prospects
+        if ($prospect->status === 'converted_to_customer' || $prospect->customer_id) {
+            return back()->with('error', 'Cannot delete a prospect that has been converted to a customer.');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Delete associated bank statement import and transactions if exists
+            if ($prospect->bank_statement_import_id) {
+                $import = BankStatementImport::find($prospect->bank_statement_import_id);
+                if ($import) {
+                    // Delete transactions first
+                    $import->transactions()->delete();
+                    
+                    // Delete analytics if exists
+                    $import->analytics()->delete();
+                    
+                    // Delete the import record
+                    $import->delete();
+                }
+            }
+
+            // Delete eligibility assessments
+            $prospect->eligibilityAssessments()->delete();
+
+            // Delete uploaded files from storage
+            if ($prospect->uploaded_statement_path && Storage::exists($prospect->uploaded_statement_path)) {
+                Storage::delete($prospect->uploaded_statement_path);
+            }
+
+            // Delete the prospect
+            $prospect->delete();
+
+            DB::commit();
+
+            Log::info('Prospect deleted', [
+                'prospect_id' => $prospect->id,
+                'deleted_by' => auth()->id(),
+                'name' => $prospect->first_name . ' ' . $prospect->last_name,
+            ]);
+
+            return redirect()->route('prospects.index')
+                ->with('success', 'Prospect deleted successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Failed to delete prospect', [
+                'prospect_id' => $prospect->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return back()->with('error', 'Failed to delete prospect: ' . $e->getMessage());
+        }
+    }
 }

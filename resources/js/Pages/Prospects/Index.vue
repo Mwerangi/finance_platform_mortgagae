@@ -116,6 +116,14 @@
                   >
                     <i class="bi bi-arrow-right-circle"></i>
                   </button>
+                  <button
+                    v-if="prospect.status !== 'converted' && !prospect.customer_id"
+                    @click="confirmDelete(prospect)"
+                    class="btn btn-outline-danger"
+                    title="Delete Prospect"
+                  >
+                    <i class="bi bi-trash"></i>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -238,6 +246,64 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">
+              <i class="bi bi-exclamation-triangle me-2"></i>Confirm Delete
+            </h5>
+            <button type="button" class="btn-close btn-close-white" @click="closeDeleteModal"></button>
+          </div>
+          <div class="modal-body" v-if="prospectToDelete">
+            <div class="alert alert-warning mb-3">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              <strong>Warning:</strong> This action cannot be undone!
+            </div>
+
+            <p class="mb-3">
+              Are you sure you want to delete this prospect? All associated data will be permanently removed, including:
+            </p>
+
+            <div class="card mb-3">
+              <div class="card-header">
+                <strong>Prospect to Delete</strong>
+              </div>
+              <div class="card-body">
+                <p class="mb-2"><strong>Name:</strong> {{ prospectToDelete.first_name }} {{ prospectToDelete.middle_name }} {{ prospectToDelete.last_name }}</p>
+                <p class="mb-2"><strong>Phone:</strong> {{ prospectToDelete.phone }}</p>
+                <p class="mb-2"><strong>ID Number:</strong> {{ prospectToDelete.id_number }}</p>
+                <p class="mb-0"><strong>Status:</strong> <Badge :variant="getStatusVariant(prospectToDelete.status)">{{ formatStatus(prospectToDelete.status) }}</Badge></p>
+              </div>
+            </div>
+
+            <ul class="text-muted mb-0">
+              <li>Bank statement uploads and transactions</li>
+              <li>Analytics and assessment results</li>
+              <li>All eligibility information</li>
+              <li>Activity history</li>
+            </ul>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeDeleteModal">
+              Cancel
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-danger" 
+              @click="performDelete"
+              :disabled="deleting"
+            >
+              <span v-if="deleting" class="spinner-border spinner-border-sm me-2"></span>
+              <i v-else class="bi bi-trash me-2"></i>
+              {{ deleting ? 'Deleting...' : 'Delete Prospect' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -266,6 +332,9 @@ const statusFilter = ref(props.filters.status || '');
 const showConvertModal = ref(false);
 const selectedProspect = ref(null);
 const converting = ref(false);
+const showDeleteModal = ref(false);
+const prospectToDelete = ref(null);
+const deleting = ref(false);
 
 const statusOptions = [
   { value: '', label: 'All Statuses' },
@@ -350,6 +419,35 @@ const confirmConversion = () => {
     },
     onFinish: () => {
       converting.value = false;
+    }
+  });
+};
+
+const confirmDelete = (prospect) => {
+  prospectToDelete.value = prospect;
+  showDeleteModal.value = true;
+};
+
+const closeDeleteModal = () => {
+  showDeleteModal.value = false;
+  prospectToDelete.value = null;
+};
+
+const performDelete = () => {
+  if (!prospectToDelete.value) return;
+  
+  deleting.value = true;
+  
+  router.delete(`/prospects/${prospectToDelete.value.id}`, {
+    preserveScroll: true,
+    onSuccess: () => {
+      closeDeleteModal();
+    },
+    onError: (errors) => {
+      alert('Error: ' + (errors.message || 'Failed to delete prospect'));
+    },
+    onFinish: () => {
+      deleting.value = false;
     }
   });
 };

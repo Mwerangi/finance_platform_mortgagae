@@ -27,22 +27,68 @@ class StatementAnalytics extends Model
         'avg_net_surplus',
         'opening_balance',
         'closing_balance',
+        
+        // Transaction Summary
+        'total_credits',
+        'total_debits',
+        'total_credit_count',
+        'total_debit_count',
+        'avg_credit_amount',
+        'avg_debit_amount',
+        
+        // Income
         'income_classification',
         'estimated_net_income',
         'income_stability_score',
         'has_regular_salary',
         'has_business_income',
         'income_sources',
+        
+        // Income Composition
+        'salary_income',
+        'business_income',
+        'loan_inflows',
+        'bulk_deposits',
+        'transfer_inflows',
+        'other_income',
+        'income_composition_breakdown',
+        
+        // Debt
         'total_debt_obligations',
         'estimated_monthly_debt',
         'debt_payment_count',
         'detected_debts',
+        
+        // Loan Detection
+        'detected_loan_count',
+        'detected_monthly_loan_repayment',
+        'detected_loans',
+        'loan_stacking_detected',
+        'loan_detection_confidence',
+        
+        // Bulk Deposits
+        'bulk_deposit_count',
+        'largest_single_deposit',
+        'bulk_deposit_details',
+        'suspicious_deposits_flagged',
+        
+        // Risk
         'cash_flow_volatility_score',
         'negative_balance_days',
         'bounce_count',
         'gambling_transaction_count',
         'large_unexplained_outflows',
         'risk_flags',
+        
+        // Behavioral Analysis
+        'transaction_frequency_score',
+        'cash_withdrawal_ratio',
+        'income_volatility_coefficient',
+        'transaction_pattern',
+        'behavioral_risk_level',
+        'behavioral_flags',
+        
+        // Overall
         'overall_risk_assessment',
         'debt_to_income_ratio',
         'disposable_income_ratio',
@@ -62,22 +108,68 @@ class StatementAnalytics extends Model
         'avg_net_surplus' => 'decimal:2',
         'opening_balance' => 'decimal:2',
         'closing_balance' => 'decimal:2',
+        
+        // Transaction Summary
+        'total_credits' => 'decimal:2',
+        'total_debits' => 'decimal:2',
+        'total_credit_count' => 'integer',
+        'total_debit_count' => 'integer',
+        'avg_credit_amount' => 'decimal:2',
+        'avg_debit_amount' => 'decimal:2',
+        
+        // Income
         'income_classification' => IncomeClassification::class,
         'estimated_net_income' => 'decimal:2',
         'income_stability_score' => 'decimal:2',
         'has_regular_salary' => 'boolean',
         'has_business_income' => 'boolean',
         'income_sources' => 'array',
+        
+        // Income Composition
+        'salary_income' => 'decimal:2',
+        'business_income' => 'decimal:2',
+        'loan_inflows' => 'decimal:2',
+        'bulk_deposits' => 'decimal:2',
+        'transfer_inflows' => 'decimal:2',
+        'other_income' => 'decimal:2',
+        'income_composition_breakdown' => 'array',
+        
+        // Debt
         'total_debt_obligations' => 'decimal:2',
         'estimated_monthly_debt' => 'decimal:2',
         'debt_payment_count' => 'integer',
         'detected_debts' => 'array',
+        
+        // Loan Detection
+        'detected_loan_count' => 'integer',
+        'detected_monthly_loan_repayment' => 'decimal:2',
+        'detected_loans' => 'array',
+        'loan_stacking_detected' => 'boolean',
+        'loan_detection_confidence' => 'string',
+        
+        // Bulk Deposits
+        'bulk_deposit_count' => 'integer',
+        'largest_single_deposit' => 'decimal:2',
+        'bulk_deposit_details' => 'array',
+        'suspicious_deposits_flagged' => 'boolean',
+        
+        // Risk
         'cash_flow_volatility_score' => 'decimal:2',
         'negative_balance_days' => 'integer',
         'bounce_count' => 'integer',
         'gambling_transaction_count' => 'integer',
         'large_unexplained_outflows' => 'decimal:2',
         'risk_flags' => 'array',
+        
+        // Behavioral Analysis
+        'transaction_frequency_score' => 'decimal:2',
+        'cash_withdrawal_ratio' => 'decimal:2',
+        'income_volatility_coefficient' => 'decimal:2',
+        'transaction_pattern' => 'string',
+        'behavioral_risk_level' => 'string',
+        'behavioral_flags' => 'array',
+        
+        // Overall
         'debt_to_income_ratio' => 'decimal:2',
         'disposable_income_ratio' => 'decimal:2',
         'computed_at' => 'datetime',

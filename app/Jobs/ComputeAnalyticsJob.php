@@ -55,9 +55,13 @@ class ComputeAnalyticsJob implements ShouldQueue
                 'customer_id' => $this->import->customer_id,
                 'institution_id' => $this->import->institution_id,
                 'application_id' => $this->import->application_id,
+                
+                // Period
                 'analysis_months' => $analyticsData['analysis_months'],
                 'analysis_start_date' => $analyticsData['analysis_start_date'],
                 'analysis_end_date' => $analyticsData['analysis_end_date'],
+                
+                // Monthly aggregations
                 'monthly_inflows' => $analyticsData['monthly_inflows'],
                 'monthly_outflows' => $analyticsData['monthly_outflows'],
                 'monthly_net_surplus' => $analyticsData['monthly_net_surplus'],
@@ -66,27 +70,75 @@ class ComputeAnalyticsJob implements ShouldQueue
                 'avg_net_surplus' => $analyticsData['avg_net_surplus'],
                 'opening_balance' => $analyticsData['opening_balance'],
                 'closing_balance' => $analyticsData['closing_balance'],
+                
+                // === NEW: Transaction Summary ===
+                'total_credits' => $analyticsData['total_credits'] ?? 0,
+                'total_debits' => $analyticsData['total_debits'] ?? 0,
+                'total_credit_count' => $analyticsData['total_credit_count'] ?? 0,
+                'total_debit_count' => $analyticsData['total_debit_count'] ?? 0,
+                'avg_credit_amount' => $analyticsData['avg_credit_amount'] ?? 0,
+                'avg_debit_amount' => $analyticsData['avg_debit_amount'] ?? 0,
+                
+                // Income analysis
                 'income_classification' => $analyticsData['income_classification'],
                 'estimated_net_income' => $analyticsData['estimated_net_income'],
                 'income_stability_score' => $analyticsData['income_stability_score'],
                 'has_regular_salary' => $analyticsData['has_regular_salary'],
                 'has_business_income' => $analyticsData['has_business_income'],
                 'income_sources' => $analyticsData['income_sources'],
+                
+                // === NEW: Income Source Composition ===
+                'salary_income' => $analyticsData['salary_income'] ?? 0,
+                'business_income' => $analyticsData['business_income'] ?? 0,
+                'loan_inflows' => $analyticsData['loan_inflows'] ?? 0,
+                'bulk_deposits' => $analyticsData['bulk_deposits'] ?? 0,
+                'transfer_inflows' => $analyticsData['transfer_inflows'] ?? 0,
+                'other_income' => $analyticsData['other_income'] ?? 0,
+                'income_composition_breakdown' => $analyticsData['income_composition_breakdown'] ?? [],
+                
+                // Debt analysis
                 'total_debt_obligations' => $analyticsData['total_debt_obligations'],
                 'estimated_monthly_debt' => $analyticsData['estimated_monthly_debt'],
                 'debt_payment_count' => $analyticsData['debt_payment_count'],
                 'detected_debts' => $analyticsData['detected_debts'],
+                
+                // === NEW: Loan Detection ===
+                'detected_loan_count' => $analyticsData['detected_loan_count'] ?? 0,
+                'detected_monthly_loan_repayment' => $analyticsData['detected_monthly_loan_repayment'] ?? 0,
+                'detected_loans' => $analyticsData['detected_loans'] ?? [],
+                'loan_stacking_detected' => $analyticsData['loan_stacking_detected'] ?? false,
+                'loan_detection_confidence' => $analyticsData['loan_detection_confidence'] ?? null,
+                
+                // === NEW: Bulk Deposit Analysis ===
+                'bulk_deposit_count' => $analyticsData['bulk_deposit_count'] ?? 0,
+                'largest_single_deposit' => $analyticsData['largest_single_deposit'] ?? 0,
+                'bulk_deposit_details' => $analyticsData['bulk_deposit_details'] ?? [],
+                'suspicious_deposits_flagged' => $analyticsData['suspicious_deposits_flagged'] ?? false,
+                
+                // Risk metrics
                 'cash_flow_volatility_score' => $analyticsData['cash_flow_volatility_score'],
                 'negative_balance_days' => $analyticsData['negative_balance_days'],
                 'bounce_count' => $analyticsData['bounce_count'],
                 'gambling_transaction_count' => $analyticsData['gambling_transaction_count'],
                 'large_unexplained_outflows' => $analyticsData['large_unexplained_outflows'],
                 'risk_flags' => $analyticsData['risk_flags'],
+                
+                // === NEW: Behavioral Analysis ===
+                'transaction_frequency_score' => $analyticsData['transaction_frequency_score'] ?? 0,
+                'cash_withdrawal_ratio' => $analyticsData['cash_withdrawal_ratio'] ?? 0,
+                'income_volatility_coefficient' => $analyticsData['income_volatility_coefficient'] ?? 0,
+                'transaction_pattern' => $analyticsData['transaction_pattern'] ?? null,
+                'behavioral_risk_level' => $analyticsData['behavioral_risk_level'] ?? null,
+                'behavioral_flags' => $analyticsData['behavioral_flags'] ?? [],
+                
+                // Overall assessment
                 'overall_risk_assessment' => $analyticsData['overall_risk_assessment'],
                 'debt_to_income_ratio' => $analyticsData['debt_to_income_ratio'],
                 'disposable_income_ratio' => $analyticsData['disposable_income_ratio'],
+                
+                // Metadata
                 'computed_at' => now(),
-                'computed_by' => Auth::id(), // May be null if run via queue
+                'computed_by' => Auth::id(),
             ]);
 
             Log::info("Analytics computation completed for import #{$this->import->id}", [
@@ -94,6 +146,9 @@ class ComputeAnalyticsJob implements ShouldQueue
                 'risk_assessment' => $analytics->overall_risk_assessment,
                 'income_classification' => $analytics->income_classification->value,
                 'dti_ratio' => $analytics->debt_to_income_ratio,
+                'loan_stacking_detected' => $analytics->loan_stacking_detected,
+                'detected_loan_count' => $analytics->detected_loan_count,
+                'behavioral_risk_level' => $analytics->behavioral_risk_level,
             ]);
 
             // Check if this is for a prospect and run eligibility assessment
