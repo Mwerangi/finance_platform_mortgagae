@@ -66,7 +66,8 @@ class EligibilityService
             $incomeData,
             $debtData,
             $loanProduct,
-            $propertyValue
+            $propertyValue,
+            $analytics
         );
 
         // Calculate risk grade
@@ -315,7 +316,8 @@ class EligibilityService
         array $incomeData,
         array $debtData,
         LoanProduct $loanProduct,
-        ?float $propertyValue
+        ?float $propertyValue,
+        StatementAnalytics $analytics
     ): array {
         $disposableIncome = $incomeData['net_income'] - $debtData['total_monthly_debt'];
 
@@ -343,6 +345,32 @@ class EligibilityService
             $finalMaxLoan = min($maxFromAffordability, $maxFromLtv);
         }
 
+        // ISSUE #2 FIX: Apply volatility-adjusted cap for high-volatility income profiles
+        // High volatility + sporadic pattern = future income uncertainty
+        $volatility = $analytics->income_volatility_coefficient ?? 0;
+        $transactionPattern = $analytics->transaction_pattern ?? 'unknown';
+        
+        if ($volatility > 60 && in_array($transactionPattern, ['sporadic', 'irregular'])) {
+            // Calculate stability factor: reduce exposure based on excess volatility
+            // Formula: 1 - ((volatility - 60) / 100 × penalty_weight)
+            // Penalty weight: 0.5 (50% reduction for 100% excess volatility)
+            $excessVolatility = $volatility - 60;
+            $penaltyWeight = 0.5;
+            $stabilityFactor = 1 - (($excessVolatility / 100) * $penaltyWeight);
+            $stabilityFactor = max(0.5, $stabilityFactor); // Min 50% of original
+            
+            $originalMax = $finalMaxLoan;
+            $finalMaxLoan = $finalMaxLoan * $stabilityFactor;
+            
+            Log::info("Volatility-adjusted max loan", [
+                'volatility' => $volatility,
+                'pattern' => $transactionPattern,
+                'original_max' => $originalMax,
+                'stability_factor' => round($stabilityFactor, 4),
+                'adjusted_max' => round($finalMaxLoan, 2),
+            ]);
+        }
+
         // Optimal tenure for max loan
         $optimalTenure = $loanProduct->max_tenure;
 
@@ -352,6 +380,7 @@ class EligibilityService
             'max_from_ltv' => $maxFromLtv ? round($maxFromLtv, 2) : null,
             'final_max_loan' => round($finalMaxLoan, 2),
             'optimal_tenure' => $optimalTenure,
+            'volatility_adjusted' => $volatility > 60 && in_array($transactionPattern, ['sporadic', 'irregular']),
         ];
     }
 

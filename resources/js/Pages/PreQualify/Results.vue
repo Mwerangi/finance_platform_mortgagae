@@ -1,5 +1,9 @@
 <template>
-    <AppLayout>
+    <AppLayout :breadcrumb="[
+        { label: 'Prospects', href: '/prospects' },
+        { label: `${prospect.first_name} ${prospect.last_name}`, href: `/prospects/${prospect.id}` },
+        { label: 'Eligibility Check' }
+    ]">
         <div class="container-fluid">
             <!-- Header -->
             <div class="row mb-4">
@@ -575,6 +579,18 @@
                             <i class="bi bi-house me-2"></i>Back to Dashboard
                         </Link>
                         <div class="d-flex gap-2">
+                            <!-- Re-run Eligibility Check Button -->
+                            <button
+                                @click="rerunCheck"
+                                class="btn btn-outline-primary"
+                                :disabled="rerunning"
+                                title="Recompute analytics and re-run eligibility assessment"
+                            >
+                                <i class="bi bi-arrow-clockwise me-2"></i>
+                                <span v-if="!rerunning">Re-run Check</span>
+                                <span v-else>Re-running...</span>
+                            </button>
+                            
                             <!-- Override Policy Button (for declined applications, senior management only) -->
                             <button
                                 v-if="isDeclined && canOverridePolicy"
@@ -857,6 +873,70 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Re-run Eligibility Check Modal -->
+                    <div v-if="showRerunModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header bg-primary text-white">
+                                    <h5 class="modal-title">
+                                        <i class="bi bi-arrow-clockwise me-2"></i>Re-run Eligibility Check
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" @click="showRerunModal = false"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="alert alert-info mb-3">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>What will happen:</strong>
+                                        <ul class="mb-0 mt-2">
+                                            <li>Analytics will be recomputed from saved bank transactions</li>
+                                            <li>Eligibility assessment will be re-run with the latest algorithms</li>
+                                            <li>Current assessment results will be replaced</li>
+                                            <li>The bank statement does NOT need to be re-uploaded</li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="card mb-3">
+                                        <div class="card-header">
+                                            <strong>Current Assessment</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <p class="mb-1"><strong>Decision:</strong> <span :class="decisionBadgeClass">{{ assessment.system_decision.toUpperCase() }}</span></p>
+                                                    <p class="mb-1"><strong>Risk Grade:</strong> {{ assessment.risk_grade }}</p>
+                                                    <p class="mb-0"><strong>Risk Score:</strong> {{ assessment.risk_score }}/100</p>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <p class="mb-1"><strong>Max Loan:</strong> TZS {{ Number(assessment.final_max_loan).toLocaleString() }}</p>
+                                                    <p class="mb-1"><strong>DTI Ratio:</strong> {{ assessment.dti_ratio }}%</p>
+                                                    <p class="mb-0"><strong>Volatility:</strong> {{ analytics.income_volatility }}%</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        <strong>Note:</strong> This action will replace the current assessment. Use this after algorithm improvements or to verify results.
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" @click="showRerunModal = false">
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-primary" 
+                                        @click="confirmRerun"
+                                    >
+                                        <i class="bi bi-arrow-clockwise me-2"></i>
+                                        Re-run Check Now
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Information Sidebar -->
@@ -997,9 +1077,11 @@ const props = defineProps({
 
 const page = usePage();
 const converting = ref(false);
+const rerunning = ref(false);
 const showAmendModal = ref(false);
 const showOverrideModal = ref(false);
 const showConvertModal = ref(false);
+const showRerunModal = ref(false);
 const amending = ref(false);
 const overriding = ref(false);
 const amendForm = ref({
@@ -1017,6 +1099,14 @@ const overrideForm = ref({
 const isEligible = computed(() => props.assessment?.system_decision === 'eligible');
 const isConditional = computed(() => props.assessment?.system_decision === 'conditional');
 const isDeclined = computed(() => props.assessment?.system_decision === 'declined' || props.assessment?.system_decision === 'outside_policy');
+
+const decisionBadgeClass = computed(() => {
+    const decision = props.assessment?.system_decision;
+    if (decision === 'eligible') return 'badge bg-success';
+    if (decision === 'conditional') return 'badge bg-warning';
+    if (decision === 'declined' || decision === 'outside_policy') return 'badge bg-danger';
+    return 'badge bg-secondary';
+});
 
 // Check if user can amend loan (managers, credit officers, admins)
 const canAmendLoan = computed(() => {
@@ -1132,6 +1222,28 @@ const confirmConversion = () => {
 
 const downloadReport = () => {
     window.location.href = `/pre-qualify/${props.prospect.id}/report`;
+};
+
+const rerunCheck = () => {
+    showRerunModal.value = true;
+};
+
+const confirmRerun = () => {
+    showRerunModal.value = false;
+    rerunning.value = true;
+    
+    router.post(`/pre-qualify/${props.prospect.id}/rerun-check`, {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Success message will be shown via flash message
+        },
+        onError: (errors) => {
+            alert('Error: ' + (errors.message || 'Failed to re-run eligibility check'));
+        },
+        onFinish: () => {
+            rerunning.value = false;
+        }
+    });
 };
 
 const closeAmendModal = () => {

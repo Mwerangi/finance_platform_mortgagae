@@ -89,6 +89,9 @@ class LoanDetectionService
         $detectedLoans = [];
         $processedGroups = [];
 
+        // Step 0: Filter out non-loan transactions (cash withdrawals, fees, commissions)
+        $debits = $this->excludeNonLoanTransactions($debits);
+
         // Step 1: Group similar transactions
         $groups = $this->groupSimilarTransactions($debits);
 
@@ -336,6 +339,83 @@ class LoanDetectionService
         $description = preg_replace('/\b\d{6,}\b/', '', $description);
         
         return trim($description);
+    }
+
+    /**
+     * Exclude non-loan transactions (cash withdrawals, fees, commissions)
+     * 
+     * @param Collection $transactions
+     * @return Collection
+     */
+    protected function excludeNonLoanTransactions(Collection $transactions): Collection
+    {
+        // Patterns that should NOT be classified as loan repayments
+        $exclusionPatterns = [
+            'CASH WITHDRAWAL',
+            'ATM WITHDRAWAL',
+            'ATM CASH WDL',
+            'ATM CHARGES',
+            'ATM FEE',
+            'WITHDRAW',
+            'MAINTENANCE FEE',
+            'MONTHLY FEE',
+            'SERVICE FEE',
+            'ANNUAL FEE',
+            'SMS FEE',
+            'COMMISSION',
+            'BANK CHARGES',
+            'STANDING ORDER FEE',
+            'LEDGER FEE',
+            'STATEMENT FEE',
+            'ACCOUNT FEE',
+            'TRANSFER FEE',
+            'TRANSACTION FEE',
+            'PROCESSING FEE',
+            'HANDLING FEE',
+            'EXCISE DUTY',
+            'VAT',
+            'TAX WITHHOLDING',
+            'GOVERNMENT LEVY',
+            'GOVERNMENT CHARGES',
+            'GOVERNMENT TAX',
+            'GOVERNMENT FEE',
+            'E-COM PURCHASE',
+            'E-COMMERCE',
+            'ECOMMERCE',
+            'ONLINE PURCHASE',
+            'ONLINE SHOPPING',
+            'CREDIT CARD PAYMENT', // Unless it explicitly says LOAN
+            'UTILITY',
+            'ELECTRICITY',
+            'WATER BILL',
+            'RENT PAYMENT',
+        ];
+
+        return $transactions->filter(function ($transaction) use ($exclusionPatterns) {
+            $description = strtoupper($transaction['description'] ?? '');
+
+            // Exclude if matches any exclusion pattern
+            foreach ($exclusionPatterns as $pattern) {
+                if (Str::contains($description, $pattern)) {
+                    // However, if description explicitly contains LOAN keywords, keep it
+                    $loanKeywords = ['LOAN', 'MKOPO', 'CREDIT LINE', 'ADVANCE', 'LENDING'];
+                    $hasLoanKeyword = false;
+                    
+                    foreach ($loanKeywords as $keyword) {
+                        if (Str::contains($description, $keyword)) {
+                            $hasLoanKeyword = true;
+                            break;
+                        }
+                    }
+
+                    if (!$hasLoanKeyword) {
+                        return false; // Exclude this transaction
+                    }
+                }
+            }
+
+            return true; // Keep this transaction
+        });
     }
 
     /**

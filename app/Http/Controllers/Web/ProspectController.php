@@ -374,6 +374,42 @@ class ProspectController extends Controller
         $bankStatement = $prospect->statementImport;
         if ($bankStatement) {
             $analytics = $bankStatement->analytics;
+            
+            // Auto-recompute if analytics are missing or invalid (all zeros but transactions exist)
+            $transactionCount = $bankStatement->transactions()->count();
+            $needsRecompute = false;
+            
+            if (!$analytics && $transactionCount > 0) {
+                Log::info("Analytics missing for import #{$bankStatement->id}, recomputing...");
+                $needsRecompute = true;
+            } elseif ($analytics && 
+                      $analytics->total_credits == 0 && 
+                      $analytics->total_debits == 0 && 
+                      $transactionCount > 0) {
+                Log::info("Analytics invalid (zeros) for import #{$bankStatement->id}, recomputing...");
+                $needsRecompute = true;
+            }
+            
+            if ($needsRecompute) {
+                try {
+                    // Delete old analytics if exists
+                    if ($analytics) {
+                        $analytics->delete();
+                    }
+                    
+                    // Recompute synchronously
+                    \App\Jobs\ComputeAnalyticsJob::dispatchSync($bankStatement);
+                    
+                    // Reload analytics
+                    $bankStatement->refresh();
+                    $analytics = $bankStatement->analytics;
+                    
+                    Log::info("Analytics recomputed successfully for import #{$bankStatement->id}");
+                } catch (\Exception $e) {
+                    Log::error("Failed to recompute analytics for import #{$bankStatement->id}: {$e->getMessage()}");
+                    // Continue anyway - show what we have
+                }
+            }
         }
 
         return Inertia::render('PreQualify/Results', [
@@ -467,6 +503,80 @@ class ProspectController extends Controller
             ]);
             
             return back()->with('error', 'Failed to re-run assessment: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Re-run eligibility check using existing bank statement data
+     * Useful when analytics algorithms are updated or user wants to refresh assessment
+     */
+    public function rerunEligibilityCheck(Prospect $prospect)
+    {
+        // Ensure user can access this prospect
+        if ($prospect->institution_id !== auth()->user()->institution_id) {
+            abort(403);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Check if bank statement import exists
+            $statementImport = $prospect->statementImport;
+            if (!$statementImport) {
+                return back()->with('error', 'No bank statement found. Please upload a bank statement first.');
+            }
+
+            // Check if transactions exist
+            $transactionCount = $statementImport->transactions()->count();
+            if ($transactionCount === 0) {
+                return back()->with('error', 'No transactions found in bank statement. Cannot run eligibility check.');
+            }
+
+            Log::info("Re-running eligibility check for prospect #{$prospect->id}", [
+                'user_id' => auth()->id(),
+                'import_id' => $statementImport->id,
+                'transaction_count' => $transactionCount,
+            ]);
+
+            // Step 1: Recompute analytics from existing transactions
+            $existingAnalytics = $statementImport->analytics;
+            if ($existingAnalytics) {
+                $existingAnalytics->delete();
+            }
+
+            // Dispatch analytics computation synchronously
+            \App\Jobs\ComputeAnalyticsJob::dispatchSync($statementImport);
+
+            // Reload to get fresh analytics
+            $statementImport->refresh();
+            $analytics = $statementImport->analytics;
+
+            if (!$analytics) {
+                throw new \Exception('Failed to compute analytics. Please try again.');
+            }
+
+            // Step 2: Re-run eligibility assessment
+            $newAssessment = $this->prospectService->runEligibilityAssessment($prospect, $analytics);
+
+            DB::commit();
+
+            Log::info("Successfully re-ran eligibility check for prospect #{$prospect->id}", [
+                'assessment_id' => $newAssessment->id,
+                'decision' => $newAssessment->system_decision,
+                'risk_grade' => $newAssessment->risk_grade,
+            ]);
+
+            return redirect()->route('pre-qualify.results', $prospect->id)
+                ->with('success', 'Eligibility check has been re-run successfully! Analytics and assessment have been updated.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Failed to re-run eligibility check for prospect #{$prospect->id}", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return back()->with('error', 'Failed to re-run eligibility check: ' . $e->getMessage());
         }
     }
 

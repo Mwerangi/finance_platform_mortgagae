@@ -195,6 +195,8 @@ Route::middleware(['auth'])->group(function () {
         ->where('prospect', '[0-9]+');
     Route::post('/pre-qualify/{prospect}/amend-and-reassess', [\App\Http\Controllers\Web\ProspectController::class, 'amendAndReassess'])
         ->name('pre-qualify.amend-and-reassess');
+    Route::post('/pre-qualify/{prospect}/rerun-check', [\App\Http\Controllers\Web\ProspectController::class, 'rerunEligibilityCheck'])
+        ->name('pre-qualify.rerun-check');
     Route::post('/pre-qualify/{prospect}/override-decision', [\App\Http\Controllers\Web\ProspectController::class, 'overrideDecision'])
         ->name('pre-qualify.override-decision');
     Route::post('/pre-qualify/{prospect}/convert', [\App\Http\Controllers\Web\ProspectController::class, 'convertToCustomer'])

@@ -55,7 +55,7 @@ class StatementAnalyticsService
         $riskMetrics = $this->computeRiskMetrics($transactions, $monthlyData);
 
         // === NEW: Behavioral Analysis ===
-        $behavioralAnalysis = $this->analyzeBehavior($transactions, $monthlyData);
+        $behavioralAnalysis = $this->analyzeBehavior($transactions, $monthlyData, $incomeComposition);
 
         // Determine overall risk assessment
         $overallRisk = $this->assessOverallRisk($riskMetrics, $incomeAnalysis, $behavioralAnalysis, $loanDetection);
@@ -203,8 +203,16 @@ class StatementAnalyticsService
             $classification = IncomeClassification::IRREGULAR;
         }
 
-        // Estimate net income
-        $estimatedIncome = $hasSalary ? $avgSalary : $monthlyData['avg_inflow'];
+        // Estimate net income based on recurring sources (excluding loan inflows and bulk deposits)
+        // This is the correct basis for DTI calculation
+        $monthsCovered = max(count($monthlyData['inflows']), 1);
+        $recurringIncome = ($incomeComposition['salary_income'] ?? 0) 
+                         + ($incomeComposition['business_income'] ?? 0)
+                         + ($incomeComposition['transfer_inflows'] ?? 0)
+                         + ($incomeComposition['other_income'] ?? 0);
+        
+        // ALWAYS use the recurring income from composition data (more accurate than keyword matching)
+        $estimatedMonthlyIncome = $recurringIncome / $monthsCovered;
 
         // Calculate income stability score (0-100)
         $stabilityScore = $this->calculateIncomeStability($monthlyData['inflows']);
@@ -228,7 +236,7 @@ class StatementAnalyticsService
 
         return [
             'classification' => $classification,
-            'estimated_income' => round($estimatedIncome, 2),
+            'estimated_income' => round($estimatedMonthlyIncome, 2),
             'stability_score' => $stabilityScore,
             'has_salary' => $hasSalary,
             'has_business' => $hasBusiness,
@@ -408,14 +416,34 @@ class StatementAnalyticsService
     {
         $riskScore = 0;
 
-        // Volatility (0-30 points)
+        // Get DTI ratio for context (will be calculated later, so use estimated values)
+        $dti = $this->computeRatios($incomeAnalysis, $loanDetection)['dti'] ?? 0;
+
+        // Volatility (0-30 points) - ADJUSTED: Reduced penalty when affordability is strong
+        // If DTI < 20% and income is sufficient, volatility is less concerning
+        $volatilityPenalty = 0;
+        
         if ($riskMetrics['volatility_score'] > 70) {
-            $riskScore += 30;
+            $volatilityPenalty = 30;
         } elseif ($riskMetrics['volatility_score'] > 50) {
-            $riskScore += 20;
+            $volatilityPenalty = 20;
         } elseif ($riskMetrics['volatility_score'] > 30) {
-            $riskScore += 10;
+            $volatilityPenalty = 10;
         }
+        
+        // Reduce volatility penalty by 50% if DTI is healthy (< 20%)
+        // Strong affordability means volatility is less of a concern
+        if ($dti > 0 && $dti < 20) {
+            $volatilityPenalty = round($volatilityPenalty * 0.5);
+            \Log::info("✅ Volatility penalty reduced due to healthy DTI", [
+                'original_penalty' => $volatilityPenalty * 2,
+                'adjusted_penalty' => $volatilityPenalty,
+                'dti' => $dti,
+                'volatility' => $riskMetrics['volatility_score'],
+            ]);
+        }
+        
+        $riskScore += $volatilityPenalty;
 
         // Negative balance (0-20 points)
         if ($riskMetrics['negative_balance_days'] > 10) {
@@ -472,8 +500,15 @@ class StatementAnalyticsService
      */
     private function computeRatios(array $incomeAnalysis, array $debtAnalysis): array
     {
-        $income = $incomeAnalysis['estimated_income'];
-        $debt = $debtAnalysis['monthly_debt'];
+        // Handle both old and new structure
+        $income = $incomeAnalysis['estimated_income'] ?? 0;
+        
+        // For loan detection array, extract monthly debt
+        if (isset($debtAnalysis['detected_monthly_loan_repayment'])) {
+            $debt = $debtAnalysis['detected_monthly_loan_repayment'];
+        } else {
+            $debt = $debtAnalysis['monthly_debt'] ?? 0;
+        }
 
         $dti = $income > 0 ? round(($debt / $income) * 100, 2) : 0;
         $disposable = $income > 0 ? round((($income - $debt) / $income) * 100, 2) : 0;
@@ -561,92 +596,141 @@ class StatementAnalyticsService
     {
         $credits = $transactions->where('credit', '>', 0);
         
+        if ($credits->isEmpty()) {
+            return [
+                'salary_income' => 0,
+                'business_income' => 0,
+                'loan_inflows' => 0,
+                'bulk_deposits' => 0,
+                'transfer_inflows' => 0,
+                'other_income' => 0,
+                'income_composition_breakdown' => [],
+            ];
+        }
+
         $salaryIncome = 0;
         $businessIncome = 0;
         $transferInflows = 0;
+        $loanInflowsTotal = 0;
+        $bulkDeposits = 0;
         $otherIncome = 0;
 
         // Keywords for classification
         $salaryKeywords = ['salary', 'wage', 'payroll', 'employer', 'employment', 'tra', 'nssf'];
         $businessKeywords = ['sales', 'invoice', 'payment received', 'pos', 'till', 'merchant'];
         $transferKeywords = ['transfer', 'mpesa', 'tigopesa', 'airtel money', 'halopesa', 'tpesa'];
+        $loanKeywords = ['loan', 'mkopo', 'disbursement', 'advance', 'credit line'];
+
+        // Calculate bulk deposit threshold (3x average credit)
+        $avgCredit = $credits->avg('credit');
+        $bulkThreshold = $avgCredit * 3;
 
         $incomeBreakdown = [];
 
         foreach ($credits as $transaction) {
             $description = strtolower($transaction->description ?? '');
             $amount = $transaction->credit;
-            $classified = false;
+            $source = null;
 
-            // Check for salary
-            foreach ($salaryKeywords as $keyword) {
+            // Priority 1: Check for loan disbursements (explicit keywords)
+            foreach ($loanKeywords as $keyword) {
                 if (stripos($description, $keyword) !== false) {
-                    $salaryIncome += $amount;
-                    $incomeBreakdown[] = [
-                        'date' => $transaction->transaction_date->format('Y-m-d'),
-                        'amount' => $amount,
-                        'source' => 'salary',
-                        'description' => $transaction->description,
-                    ];
-                    $classified = true;
+                    $loanInflowsTotal += $amount;
+                    $source = 'loan_inflow';
                     break;
                 }
             }
 
-            if ($classified) continue;
-
-            // Check for business income
-            foreach ($businessKeywords as $keyword) {
-                if (stripos($description, $keyword) !== false) {
-                    $businessIncome += $amount;
-                    $incomeBreakdown[] = [
-                        'date' => $transaction->transaction_date->format('Y-m-d'),
-                        'amount' => $amount,
-                        'source' => 'business',
-                        'description' => $transaction->description,
-                    ];
-                    $classified = true;
-                    break;
+            // Priority 2: Check for salary
+            if (!$source) {
+                foreach ($salaryKeywords as $keyword) {
+                    if (stripos($description, $keyword) !== false) {
+                        $salaryIncome += $amount;
+                        $source = 'salary';
+                        break;
+                    }
                 }
             }
 
-            if ($classified) continue;
-
-            // Check for transfers
-            foreach ($transferKeywords as $keyword) {
-                if (stripos($description, $keyword) !== false) {
-                    $transferInflows += $amount;
-                    $incomeBreakdown[] = [
-                        'date' => $transaction->transaction_date->format('Y-m-d'),
-                        'amount' => $amount,
-                        'source' => 'transfer',
-                        'description' => $transaction->description,
-                    ];
-                    $classified = true;
-                    break;
+            // Priority 3: Check for business income
+            if (!$source) {
+                foreach ($businessKeywords as $keyword) {
+                    if (stripos($description, $keyword) !== false) {
+                        $businessIncome += $amount;
+                        $source = 'business';
+                        break;
+                    }
                 }
             }
 
-            if ($classified) continue;
+            // Priority 4: Check for bulk deposits (large unexplained amounts)
+            if (!$source && $amount > $bulkThreshold) {
+                $bulkDeposits += $amount;
+                $source = 'bulk_deposit';
+            }
 
-            // Everything else is "other"
-            $otherIncome += $amount;
+            // Priority 5: Check for transfers
+            if (!$source) {
+                foreach ($transferKeywords as $keyword) {
+                    if (stripos($description, $keyword) !== false) {
+                        $transferInflows += $amount;
+                        $source = 'transfer';
+                        break;
+                    }
+                }
+            }
+
+            // Priority 6: Everything else is "other"
+            if (!$source) {
+                $otherIncome += $amount;
+                $source = 'other';
+            }
+
             $incomeBreakdown[] = [
                 'date' => $transaction->transaction_date->format('Y-m-d'),
                 'amount' => $amount,
-                'source' => 'other',
+                'source' => $source,
                 'description' => $transaction->description,
             ];
         }
 
-        // Get bulk deposits and loan inflows from detection
-        $bulkDeposits = $this->calculateBulkDepositsTotal($credits);
-        $loanInflows = $loanDetection['loan_inflows'] ?? 0;
+        // Verify totals match (all credits should be accounted for)
+        $totalClassified = $salaryIncome + $businessIncome + $loanInflowsTotal + $bulkDeposits + $transferInflows + $otherIncome;
+        $totalCredits = $credits->sum('credit');
+        
+        // Enhanced validation logging
+        if (abs($totalClassified - $totalCredits) > 1) { // Allow 1 TZS rounding difference
+            \Log::error("❌ Income composition MISMATCH - Double counting detected!", [
+                'salary_income' => $salaryIncome,
+                'business_income' => $businessIncome,
+                'loan_inflows' => $loanInflowsTotal,
+                'bulk_deposits' => $bulkDeposits,
+                'transfer_inflows' => $transferInflows,
+                'other_income' => $otherIncome,
+                'total_classified' => $totalClassified,
+                'total_credits' => $totalCredits,
+                'difference' => $totalClassified - $totalCredits,
+                'difference_percentage' => round((($totalClassified - $totalCredits) / $totalCredits) * 100, 2) . '%',
+            ]);
+        } else {
+            \Log::info("✅ Income composition validated - Categories are mutually exclusive", [
+                'total_credits' => $totalCredits,
+                'total_classified' => $totalClassified,
+                'breakdown' => [
+                    'salary' => $salaryIncome . ' (' . round(($salaryIncome / $totalCredits) * 100, 1) . '%)',
+                    'business' => $businessIncome . ' (' . round(($businessIncome / $totalCredits) * 100, 1) . '%)',
+                    'loans' => $loanInflowsTotal . ' (' . round(($loanInflowsTotal / $totalCredits) * 100, 1) . '%)',
+                    'bulk' => $bulkDeposits . ' (' . round(($bulkDeposits / $totalCredits) * 100, 1) . '%)',
+                    'transfers' => $transferInflows . ' (' . round(($transferInflows / $totalCredits) * 100, 1) . '%)',
+                    'other' => $otherIncome . ' (' . round(($otherIncome / $totalCredits) * 100, 1) . '%)',
+                ],
+            ]);
+        }
 
         return [
             'salary_income' => round($salaryIncome, 2),
             'business_income' => round($businessIncome, 2),
-            'loan_inflows' => round($loanInflows, 2),
+            'loan_inflows' => round($loanInflowsTotal, 2),
             'bulk_deposits' => round($bulkDeposits, 2),
             'transfer_inflows' => round($transferInflows, 2),
             'other_income' => round($otherIncome, 2),
@@ -685,13 +769,20 @@ class StatementAnalyticsService
             ];
         }
 
-        $avgCredit = $credits->avg('credit');
-        $avgMonthlyIncome = $incomeComposition['salary_income'] > 0 
-            ? $incomeComposition['salary_income'] 
-            : $avgCredit;
-
-        // Define bulk deposit threshold (3x average OR 50% of monthly income)
-        $threshold = max($avgCredit * 3, $avgMonthlyIncome * 0.5);
+        // Calculate monthly average inflow (more accurate than simple average)
+        $monthlyGroups = $transactions->where('credit', '>', 0)->groupBy(function ($t) {
+            return $t->transaction_date->format('Y-m');
+        });
+        
+        $monthlyInflows = $monthlyGroups->map(function ($monthTransactions) {
+            return $monthTransactions->sum('credit');
+        });
+        
+        $avgMonthlyInflow = $monthlyInflows->avg();
+        
+        // Use 2x monthly average as threshold (business-friendly)
+        // This is more reasonable than 3x single transaction average
+        $threshold = $avgMonthlyInflow * 2;
 
         $bulkDeposits = $credits->where('credit', '>', $threshold);
         $largestDeposit = $credits->max('credit');
@@ -735,8 +826,9 @@ class StatementAnalyticsService
                 }
             }
 
-            // Flag as suspicious if source unknown and amount > monthly income
-            if ($source === 'unknown' && $deposit->credit > $avgMonthlyIncome) {
+            // Flag as suspicious if source unknown and amount > 2x monthly average
+            // More lenient for business clients with legitimate large deposits
+            if ($source === 'unknown' && $deposit->credit > ($avgMonthlyInflow * 2)) {
                 $suspicious = true;
                 $suspiciousCount++;
             }
@@ -762,7 +854,7 @@ class StatementAnalyticsService
     /**
      * 5. Analyze transaction behavior and patterns
      */
-    private function analyzeBehavior(Collection $transactions, array $monthlyData): array
+    private function analyzeBehavior(Collection $transactions, array $monthlyData, array $incomeComposition): array
     {
         if ($transactions->isEmpty()) {
             return [
@@ -776,7 +868,7 @@ class StatementAnalyticsService
         }
 
         // Transaction frequency analysis
-        $totalDays = $transactions->last()->transaction_date->diffInDays($transactions->first()->transaction_date) + 1;
+        $totalDays = $transactions->first()->transaction_date->diffInDays($transactions->last()->transaction_date) + 1;
         $transactionsPerDay = $totalDays > 0 ? $transactions->count() / $totalDays : 0;
         
         // Normalize to 0-100 scale (assume 5+ transactions/day = 100)
@@ -800,10 +892,32 @@ class StatementAnalyticsService
 
         $cashWithdrawalRatio = $totalDebits > 0 ? round(($cashWithdrawals / $totalDebits) * 100, 2) : 0;
 
-        // Income volatility (coefficient of variation)
-        $monthlyInflows = collect($monthlyData['inflows'])->pluck('inflow');
-        $avgInflow = $monthlyInflows->avg();
-        $incomeVolatility = $avgInflow > 0 ? round(($this->standardDeviation($monthlyInflows) / $avgInflow) * 100, 2) : 0;
+        // Income volatility (coefficient of variation) - FIXED: Calculate on recurring income only
+        // Use the income composition breakdown to identify recurring income month-by-month
+        $recurringIncomeByMonth = [];
+        
+        if (isset($incomeComposition['income_composition_breakdown']) && 
+            is_array($incomeComposition['income_composition_breakdown'])) {
+            
+            foreach ($incomeComposition['income_composition_breakdown'] as $item) {
+                // Only count recurring income sources (exclude bulk deposits and loan inflows)
+                if (in_array($item['source'], ['salary', 'business', 'transfer', 'other'])) {
+                    $month = substr($item['date'], 0, 7); // Extract 'Y-m'
+                    if (!isset($recurringIncomeByMonth[$month])) {
+                        $recurringIncomeByMonth[$month] = 0;
+                    }
+                    $recurringIncomeByMonth[$month] += $item['amount'];
+                }
+            }
+        }
+        
+        $recurringMonthlyInflows = collect(array_values($recurringIncomeByMonth));
+        $avgRecurringInflow = $recurringMonthlyInflows->avg();
+        
+        // Calculate volatility on recurring income only
+        $incomeVolatility = ($avgRecurringInflow > 0 && $recurringMonthlyInflows->count() > 1)
+            ? round(($this->standardDeviation($recurringMonthlyInflows) / $avgRecurringInflow) * 100, 2) 
+            : 0;
 
         // Transaction pattern classification
         $pattern = 'regular';
