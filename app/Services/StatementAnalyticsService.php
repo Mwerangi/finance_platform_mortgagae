@@ -57,6 +57,9 @@ class StatementAnalyticsService
         // === NEW: Behavioral Analysis ===
         $behavioralAnalysis = $this->analyzeBehavior($transactions, $monthlyData, $incomeComposition);
 
+        // === NEW: Pass-Through Detection ===
+        $passThroughAnalysis = $this->detectPassThrough($transactions);
+
         // Determine overall risk assessment
         $overallRisk = $this->assessOverallRisk($riskMetrics, $incomeAnalysis, $behavioralAnalysis, $loanDetection);
 
@@ -103,6 +106,7 @@ class StatementAnalyticsService
             'risk_flags' => $riskMetrics['flags'],
         ],
         $behavioralAnalysis,
+        $passThroughAnalysis,
         [
             'overall_risk_assessment' => $overallRisk,
             'debt_to_income_ratio' => $ratios['dti'],
@@ -971,6 +975,81 @@ class StatementAnalyticsService
             'transaction_pattern' => $pattern,
             'behavioral_risk_level' => $riskLevel,
             'behavioral_flags' => $behavioralFlags,
+        ];
+    }
+
+    /**
+     * Detect pass-through / immediate cash-out patterns
+     * Suspicious "money in → money out" behavior
+     */
+    private function detectPassThrough(Collection $transactions): array
+    {
+        $config = config('mortgage.analytics.pass_through');
+        
+        if (!$config['enabled']) {
+            return [
+                'pass_through_count' => 0,
+                'pass_through_total_amount' => 0,
+                'pass_through_ratio' => 0,
+                'pass_through_risk_flag' => false,
+                'pass_through_transactions' => [],
+            ];
+        }
+
+        $amountTolerance = $config['amount_tolerance_percentage'] / 100; // Convert to decimal
+        $timeWindowDays = $config['time_window_days'];
+        $riskThreshold = $config['risk_threshold_ratio'];
+
+        $credits = $transactions->where('credit', '>', 0)->sortBy('transaction_date');
+        $debits = $transactions->where('debit', '>', 0)->sortBy('transaction_date');
+        
+        $totalCredits = $credits->sum('credit');
+        $passThroughCount = 0;
+        $passThroughAmount = 0;
+        $passThroughTransactions = [];
+
+        foreach ($credits as $credit) {
+            // Look for matching debits within time window
+            $matchingDebits = $debits->filter(function ($debit) use ($credit, $amountTolerance, $timeWindowDays) {
+                // Check time window
+                $daysDiff = $credit->transaction_date->diffInDays($debit->transaction_date, false);
+                if ($daysDiff < 0 || $daysDiff > $timeWindowDays) {
+                    return false;
+                }
+
+                // Check amount similarity (±tolerance%)
+                $lowerBound = $credit->credit * (1 - $amountTolerance);
+                $upperBound = $credit->credit * (1 + $amountTolerance);
+                
+                return $debit->debit >= $lowerBound && $debit->debit <= $upperBound;
+            });
+
+            if ($matchingDebits->isNotEmpty()) {
+                $passThroughCount++;
+                $passThroughAmount += $credit->credit;
+                
+                // Track the pattern
+                $passThroughTransactions[] = [
+                    'credit_date' => $credit->transaction_date->format('Y-m-d'),
+                    'credit_amount' => $credit->credit,
+                    'credit_description' => $credit->description,
+                    'debit_date' => $matchingDebits->first()->transaction_date->format('Y-m-d'),
+                    'debit_amount' => $matchingDebits->first()->debit,
+                    'debit_description' => $matchingDebits->first()->description,
+                    'days_difference' => $credit->transaction_date->diffInDays($matchingDebits->first()->transaction_date),
+                ];
+            }
+        }
+
+        $passThroughRatio = $totalCredits > 0 ? ($passThroughAmount / $totalCredits) : 0;
+        $riskFlag = $passThroughRatio > $riskThreshold;
+
+        return [
+            'pass_through_count' => $passThroughCount,
+            'pass_through_total_amount' => round($passThroughAmount, 2),
+            'pass_through_ratio' => round($passThroughRatio * 100, 2), // As percentage
+            'pass_through_risk_flag' => $riskFlag,
+            'pass_through_transactions' => array_slice($passThroughTransactions, 0, 10), // Limit to 10 examples
         ];
     }
 }

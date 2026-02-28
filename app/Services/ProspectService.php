@@ -111,6 +111,7 @@ class ProspectService
                 'risk_grade' => $result['risk_grade'],
                 'risk_score' => $result['risk_score'],
                 'risk_factors' => $result['risk_factors'],
+                'risk_explanation' => $result['risk_explanation'] ?? null,
                 'cash_flow_volatility' => $result['cash_flow_volatility'],
                 
                 // Decision

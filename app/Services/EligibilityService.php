@@ -73,6 +73,23 @@ class EligibilityService
         // Calculate risk grade
         $riskData = $this->calculateRiskGrade($analytics, $ratios, $incomeData);
 
+        // Generate risk and loan explanations
+        $riskExplanation = $this->generateRiskExplanation(
+            $riskData,
+            $maxLoanData,
+            $analytics,
+            $ratios,
+            $incomeData,
+            $requestedAmount
+        );
+        
+        // Debug logging
+        \Log::info('Risk Explanation Generated', [
+            'has_data' => !empty($riskExplanation),
+            'keys' => $riskExplanation ? array_keys($riskExplanation) : [],
+            'driver_count' => isset($riskExplanation['primary_risk_drivers']) ? count($riskExplanation['primary_risk_drivers']) : 0
+        ]);
+
         // Evaluate policy rules
         $policyResult = $this->evaluatePolicyRules(
             $ratios,
@@ -135,6 +152,7 @@ class EligibilityService
             'risk_score' => $riskData['score'],
             'risk_factors' => $riskData['factors'],
             'cash_flow_volatility' => $analytics->cash_flow_volatility_score,
+            'risk_explanation' => $riskExplanation,
             
             // Decision
             'system_decision' => $policyResult['decision'],
@@ -350,6 +368,9 @@ class EligibilityService
         $volatility = $analytics->income_volatility_coefficient ?? 0;
         $transactionPattern = $analytics->transaction_pattern ?? 'unknown';
         
+        $volatilityAdjusted = false;
+        $volatilityReductionPct = 0;
+        
         if ($volatility > 60 && in_array($transactionPattern, ['sporadic', 'irregular'])) {
             // Calculate stability factor: reduce exposure based on excess volatility
             // Formula: 1 - ((volatility - 60) / 100 × penalty_weight)
@@ -361,6 +382,8 @@ class EligibilityService
             
             $originalMax = $finalMaxLoan;
             $finalMaxLoan = $finalMaxLoan * $stabilityFactor;
+            $volatilityAdjusted = true;
+            $volatilityReductionPct = round((1 - $stabilityFactor) * 100, 2);
             
             Log::info("Volatility-adjusted max loan", [
                 'volatility' => $volatility,
@@ -368,6 +391,7 @@ class EligibilityService
                 'original_max' => $originalMax,
                 'stability_factor' => round($stabilityFactor, 4),
                 'adjusted_max' => round($finalMaxLoan, 2),
+                'reduction_pct' => $volatilityReductionPct,
             ]);
         }
 
@@ -380,7 +404,8 @@ class EligibilityService
             'max_from_ltv' => $maxFromLtv ? round($maxFromLtv, 2) : null,
             'final_max_loan' => round($finalMaxLoan, 2),
             'optimal_tenure' => $optimalTenure,
-            'volatility_adjusted' => $volatility > 60 && in_array($transactionPattern, ['sporadic', 'irregular']),
+            'volatility_adjusted' => $volatilityAdjusted,
+            'volatility_reduction_pct' => $volatilityReductionPct,
         ];
     }
 
@@ -480,6 +505,14 @@ class EligibilityService
             $factors[] = ['factor' => 'bounced_transactions', 'value' => $analytics->bounce_count, 'weight' => min(10, $analytics->bounce_count * 5)];
         }
 
+        // Pass-through transaction ratio (15 points max) - Suspicious cash-out behavior
+        if (isset($analytics->pass_through_risk_flag) && $analytics->pass_through_risk_flag) {
+            $passThroughRatio = $analytics->pass_through_ratio ?? 0;
+            $riskWeight = config('mortgage.analytics.pass_through.risk_weight', 15);
+            $riskScore += $riskWeight;
+            $factors[] = ['factor' => 'high_pass_through', 'value' => $passThroughRatio, 'weight' => $riskWeight];
+        }
+
         // Determine grade
         $grade = match(true) {
             $riskScore <= 15 => 'A',
@@ -494,6 +527,127 @@ class EligibilityService
             'grade' => $grade,
             'factors' => $factors,
         ];
+    }
+
+    /**
+     * Generate plain-English risk and loan amount explanations
+     */
+    private function generateRiskExplanation(
+        array $riskData,
+        array $maxLoanData,
+        StatementAnalytics $analytics,
+        array $ratios,
+        array $incomeData,
+        float $requestedAmount
+    ): array {
+        // Top risk drivers (sort by weight, take top 3-5)
+        $topFactors = collect($riskData['factors'])
+            ->sortByDesc('weight')
+            ->take(5)
+            ->map(function ($factor) {
+                return [
+                    'factor' => $this->explainRiskFactor($factor),
+                    'points' => $factor['weight'],
+                ];
+            })
+            ->values()
+            ->toArray();
+
+        // Generate risk grade reasoning
+        $gradeReasons = [];
+        foreach ($riskData['factors'] as $factor) {
+            $gradeReasons[] = $this->explainRiskFactor($factor);
+        }
+
+        // Loan limit determination explanation
+        $loanLimitExplanation = $this->explainLoanLimit(
+            $maxLoanData,
+            $incomeData,
+            $ratios,
+            $analytics,
+            $requestedAmount
+        );
+
+        return [
+            'risk_grade' => $riskData['grade'],
+            'risk_score' => $riskData['score'],
+            'primary_risk_drivers' => $topFactors,
+            'risk_grade_reasoning' => "Risk Grade {$riskData['grade']} assigned based on: " . implode('; ', array_slice($gradeReasons, 0, 3)),
+            'loan_limit_determination' => $loanLimitExplanation,
+            'limiting_factor' => $maxLoanData['limiting_factor'] ?? 'affordability',
+        ];
+    }
+
+    /**
+     * Explain a single risk factor in plain English
+     */
+    private function explainRiskFactor(array $factor): string
+    {
+        return match($factor['factor']) {
+            'high_dti' => "High debt-to-income ratio ({$factor['value']}%) indicates significant existing obligations",
+            'moderate_dti' => "Moderate debt-to-income ratio ({$factor['value']}%) shows manageable debt levels",
+            'acceptable_dti' => "Acceptable debt-to-income ratio ({$factor['value']}%)",
+            
+            'unstable_income' => "Unstable income pattern (stability score: {$factor['value']}/100)",
+            'moderate_income_stability' => "Moderate income stability (score: {$factor['value']}/100)",
+            'fair_income_stability' => "Fair income stability (score: {$factor['value']}/100)",
+            
+            'high_volatility' => "High income volatility ({$factor['value']}%) suggests unpredictable cash flow",
+            'moderate_volatility' => "Moderate income volatility ({$factor['value']}%) detected",
+            'some_volatility' => "Some income volatility ({$factor['value']}%) present",
+            
+            'frequent_negative_balance' => "Frequent negative balance days ({$factor['value']} days) indicate cash flow stress",
+            'occasional_negative_balance' => "Occasional negative balance ({$factor['value']} days)",
+            'some_negative_balance' => "Some negative balance occurrences ({$factor['value']} days)",
+            
+            'bounced_transactions' => "Bounced transactions detected ({$factor['value']} instances)",
+            'loan_stacking' => "Multiple active loans detected ({$factor['value']} obligations)",
+            'high_pass_through' => "High pass-through transaction ratio ({$factor['value']}%) indicates potential money laundering risk",
+            default => ucfirst(str_replace('_', ' ', $factor['factor'])) . " (value: {$factor['value']})",
+        };
+    }
+
+    /**
+     * Explain loan limit determination
+     */
+    private function explainLoanLimit(
+        array $maxLoanData,
+        array $incomeData,
+        array $ratios,
+        StatementAnalytics $analytics,
+        float $requestedAmount
+    ): string {
+        $netIncome = number_format($incomeData['net_income'], 0);
+        $maxFromAffordability = number_format($maxLoanData['max_from_affordability'], 0);
+        $finalMax = number_format($maxLoanData['final_max_loan'], 0);
+        
+        $dsr = round($ratios['dsr'], 1);
+        $dsrCap = ($analytics->income_classification->value === 'salary') ? 40 : 35;
+
+        $explanation = "Based on net monthly income of TZS {$netIncome}, ";
+        $explanation .= "with DSR cap at {$dsrCap}%, maximum affordable loan is TZS {$maxFromAffordability}. ";
+        
+        if ($maxLoanData['max_from_ltv'] !== null && $maxLoanData['max_from_ltv'] < $maxLoanData['max_from_affordability']) {
+            $maxFromLTV = number_format($maxLoanData['max_from_ltv'], 0);
+            $explanation .= "However, LTV constraint limits this to TZS {$maxFromLTV}. ";
+        }
+        
+        // Check if volatility adjustment was applied
+        if (isset($maxLoanData['volatility_adjusted']) && $maxLoanData['volatility_adjusted']) {
+            $volatility = round($analytics->cash_flow_volatility_score, 1);
+            $reductionPct = $maxLoanData['volatility_reduction_pct'] ?? 0;
+            $explanation .= "Additionally, high income volatility ({$volatility}%) resulted in a {$reductionPct}% reduction for risk mitigation. ";
+        }
+        
+        $explanation .= "Final maximum loan: TZS {$finalMax}.";
+        
+        if ($requestedAmount > $maxLoanData['final_max_loan']) {
+            $requestedFormatted = number_format($requestedAmount, 0);
+            $excess = number_format($requestedAmount - $maxLoanData['final_max_loan'], 0);
+            $explanation .= " Requested amount (TZS {$requestedFormatted}) exceeds maximum by TZS {$excess}.";
+        }
+        
+        return $explanation;
     }
 
     /**

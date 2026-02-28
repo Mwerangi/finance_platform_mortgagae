@@ -1,10 +1,22 @@
 <template>
     <AppLayout :breadcrumb="[
         { label: 'Prospects', href: '/prospects' },
-        { label: `${prospect.first_name} ${prospect.last_name}`, href: `/prospects/${prospect.id}` },
+        { label: `${prospect?.first_name} ${prospect?.last_name}`, href: `/prospects/${prospect?.id}` },
         { label: 'Eligibility Check' }
     ]">
-        <div class="container-fluid">
+        <!-- Loading State -->
+        <div v-if="!prospect || !assessment" class="container-fluid">
+            <div class="row">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="bi bi-hourglass-split me-2"></i>Loading assessment data...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div v-else class="container-fluid">
             <!-- Header -->
             <div class="row mb-4">
                 <div class="col-12">
@@ -1019,6 +1031,76 @@
                         </div>
                     </div>
 
+                    <!-- Risk Explanation -->
+                    <div v-if="assessment && assessment.risk_explanation" class="card mb-4">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-info-circle me-2"></i>Risk Assessment Explanation
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <!-- Primary Risk Drivers -->
+                            <div v-if="assessment.risk_explanation?.primary_risk_drivers?.length > 0" class="mb-3">
+                                <h6 class="text-dark mb-2">
+                                    <i class="bi bi-lightning-fill me-2 text-warning"></i>Primary Risk Drivers:
+                                </h6>
+                                <ul class="list-unstyled ms-4">
+                                    <li v-for="(driver, idx) in assessment.risk_explanation.primary_risk_drivers" :key="idx" class="mb-2">
+                                        <i class="bi bi-arrow-right-circle me-2 text-primary"></i>{{ driver.factor }} <span class="badge bg-secondary ms-2">{{ driver.points }} pts</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- Risk Grade Reasoning -->
+                            <div v-if="assessment.risk_explanation?.risk_grade_reasoning" class="mb-3 p-3 bg-light rounded">
+                                <strong class="d-block mb-2">Risk Grade Reasoning:</strong>
+                                <p class="mb-0">{{ assessment.risk_explanation.risk_grade_reasoning }}</p>
+                            </div>
+
+                            <!-- Loan Limit Determination -->
+                            <div v-if="assessment.risk_explanation?.loan_limit_determination" class="p-3 bg-light rounded">
+                                <strong class="d-block mb-2">Loan Limit Determination:</strong>
+                                <p class="mb-0">{{ assessment.risk_explanation.loan_limit_determination }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pass-Through Detection -->
+                    <div v-if="analytics && analytics.pass_through_count > 0" class="card mb-4">
+                        <div class="card-header" :class="analytics.pass_through_risk_flag ? 'bg-danger text-white' : 'bg-warning text-dark'">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>Transaction Anomaly Detection
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert" :class="analytics.pass_through_risk_flag ? 'alert-danger' : 'alert-warning'" role="alert">
+                                <h6 class="alert-heading">
+                                    {{ analytics.pass_through_risk_flag ? '⚠️ High Pass-Through Activity Detected' : 'ℹ️ Pass-Through Activity Detected' }}
+                                </h6>
+                                <p class="mb-2">
+                                    Detected {{ analytics.pass_through_count }} instances of "money in → money out" patterns 
+                                    within short time windows, totaling TZS {{ Number(analytics.pass_through_total_amount || 0).toLocaleString() }}.
+                                </p>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <strong>Pass-Through Ratio:</strong> {{ Number(analytics.pass_through_ratio || 0).toFixed(1) }}% of total credits
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <strong>Risk Status:</strong> 
+                                        <span class="badge" :class="analytics.pass_through_risk_flag ? 'bg-danger' : 'bg-warning'">
+                                            {{ analytics.pass_through_risk_flag ? 'High Risk' : 'Monitored' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="mb-0 mt-2 small">
+                                    <strong>Note:</strong> Pass-through transactions may indicate suspicious cash-out behavior 
+                                    or irregular money flow patterns that warrant additional scrutiny.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Next Steps -->
                     <div class="card bg-light">
                         <div class="card-body">
@@ -1060,7 +1142,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div><!-- End Main Content -->
     </AppLayout>
 </template>
 

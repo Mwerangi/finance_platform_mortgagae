@@ -90,6 +90,39 @@ return [
             'business_patterns' => ['sales', 'revenue', 'payment received', 'invoice'],
         ],
         'debt_patterns' => ['loan repayment', 'credit card', 'mortgage', 'finance', 'installment'],
+        
+        // Pass-through detection thresholds
+        'pass_through' => [
+            'enabled' => env('PASS_THROUGH_DETECTION_ENABLED', true),
+            'amount_tolerance_percentage' => env('PASS_THROUGH_AMOUNT_TOLERANCE', 5), // ±5%
+            'time_window_days' => env('PASS_THROUGH_TIME_WINDOW_DAYS', 2), // 0-2 days
+            'risk_threshold_ratio' => env('PASS_THROUGH_RISK_THRESHOLD', 0.30), // 30% of total credits
+            'risk_weight' => env('PASS_THROUGH_RISK_WEIGHT', 15), // Risk score impact (max 15 points)
+        ],
+        
+        // Loan detection configuration
+        'loan_detection' => [
+            'require_recurring_pattern' => env('LOAN_REQUIRE_RECURRING', true),
+            'min_consistency_score' => env('LOAN_MIN_CONSISTENCY_SCORE', 60), // 0-100
+            'max_variance_percentage' => env('LOAN_MAX_VARIANCE_PCT', 15), // Amount variance tolerance
+            'known_lenders' => [
+                'faulu', 'kcb', 'equity', 'co-operative', 'family bank',
+                'ncba', 'stanbic', 'absa', 'dtb', 'branch', 'tala',
+                'm-shwari', 'mkopapp', 'timiza', 'fuliza', 'kcb mpesa',
+            ],
+        ],
+        
+        // Bulk deposit detection
+        'bulk_deposit' => [
+            'threshold_multiplier' => env('BULK_DEPOSIT_MULTIPLIER', 2.0), // 2x avg monthly income
+        ],
+        
+        // Volatility thresholds
+        'volatility' => [
+            'high_threshold' => env('VOLATILITY_HIGH_THRESHOLD', 70), // %
+            'moderate_threshold' => env('VOLATILITY_MODERATE_THRESHOLD', 50), // %
+            'adjustment_start' => env('VOLATILITY_ADJUSTMENT_START', 60), // % - when to start reducing max loan
+        ],
     ],
 
     'queue' => [

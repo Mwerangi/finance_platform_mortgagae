@@ -53,6 +53,30 @@
             margin-top: 3px;
         }
         
+        /* Breadcrumb */
+        .breadcrumb-path {
+            background: rgba(255,255,255,0.15);
+            padding: 8px 20px;
+            margin: -10mm -10mm 0 -10mm;
+            font-size: 8pt;
+            color: rgba(255,255,255,0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .breadcrumb-path span {
+            opacity: 0.8;
+        }
+        
+        .breadcrumb-path .separator {
+            margin: 0 8px;
+            opacity: 0.5;
+        }
+        
+        .breadcrumb-path .current {
+            font-weight: 600;
+            opacity: 1;
+        }
+        
         /* Decision Banner */
         .decision {
             margin: 12px 0;
@@ -333,6 +357,15 @@
     </style>
 </head>
 <body>
+    <!-- Breadcrumb Navigation -->
+    <div class="breadcrumb-path">
+        <span>Prospects</span>
+        <span class="separator">›</span>
+        <span>{{ $prospect->first_name }} {{ $prospect->last_name }}</span>
+        <span class="separator">›</span>
+        <span class="current">Eligibility Assessment</span>
+    </div>
+    
     <!-- Header -->
     <div class="header">
         <div class="header-flex">
@@ -661,6 +694,96 @@
                 @endforeach
             </tbody>
         </table>
+    </div>
+    @endif
+
+    <!-- Risk Grade Explanation -->
+    @if(isset($assessment->risk_explanation) && $assessment->risk_explanation)
+    <div class="section">
+        <div class="section-title">Risk Assessment Explanation</div>
+        @php
+            $riskExplanation = is_array($assessment->risk_explanation) 
+                ? $assessment->risk_explanation 
+                : json_decode($assessment->risk_explanation, true);
+        @endphp
+        
+        @if(isset($riskExplanation['primary_risk_drivers']) && count($riskExplanation['primary_risk_drivers']) > 0)
+        <div class="explanation-section">
+            <div class="label" style="font-weight: bold; margin-bottom: 8px;">Primary Risk Drivers:</div>
+            <ul style="margin: 0; padding-left: 20px;">
+                @foreach($riskExplanation['primary_risk_drivers'] as $driver)
+                <li style="margin-bottom: 5px;">
+                    {{ is_array($driver) ? $driver['factor'] : $driver }}
+                    @if(is_array($driver) && isset($driver['points']))
+                    <span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 5px;">{{ $driver['points'] }} pts</span>
+                    @endif
+                </li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
+
+        @if(isset($riskExplanation['risk_grade_reasoning']))
+        <div class="explanation-section" style="margin-top: 15px;">
+            <div class="label" style="font-weight: bold; margin-bottom: 5px;">Risk Grade Reasoning:</div>
+            <p style="margin: 0;">{{ $riskExplanation['risk_grade_reasoning'] }}</p>
+        </div>
+        @endif
+
+        @if(isset($riskExplanation['loan_limit_determination']))
+        <div class="explanation-section" style="margin-top: 15px;">
+            <div class="label" style="font-weight: bold; margin-bottom: 5px;">Loan Limit Determination:</div>
+            <p style="margin: 0;">{{ $riskExplanation['loan_limit_determination'] }}</p>
+        </div>
+        @endif
+    </div>
+    @endif
+
+    <!-- Transaction Anomaly Detection (Pass-Through) -->
+    @if(isset($analytics->pass_through_count) && $analytics->pass_through_count > 0)
+    <div class="section">
+        <div class="section-title">Transaction Anomaly Detection</div>
+        <div class="alert-box" style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 15px;">
+            <div style="font-weight: bold; margin-bottom: 10px;">
+                @if($analytics->pass_through_risk_flag)
+                <span style="color: #dc3545;">⚠️ High Pass-Through Activity Detected</span>
+                @else
+                <span style="color: #856404;">ℹ️ Pass-Through Activity Detected</span>
+                @endif
+            </div>
+            <div class="grid">
+                <div class="grid-row">
+                    <div class="grid-cell">
+                        <span class="label">Pass-Through Transactions</span>
+                        <span class="value">{{ $analytics->pass_through_count }} instances</span>
+                    </div>
+                    <div class="grid-cell">
+                        <span class="label">Total Amount</span>
+                        <span class="value">TZS {{ number_format($analytics->pass_through_total_amount ?? 0, 0) }}</span>
+                    </div>
+                </div>
+                <div class="grid-row">
+                    <div class="grid-cell">
+                        <span class="label">Pass-Through Ratio</span>
+                        <span class="value">{{ number_format($analytics->pass_through_ratio ?? 0, 1) }}% of total credits</span>
+                    </div>
+                    <div class="grid-cell">
+                        <span class="label">Risk Status</span>
+                        <span class="value">
+                            @if($analytics->pass_through_risk_flag)
+                            <span class="status-badge danger">High Risk</span>
+                            @else
+                            <span class="status-badge warning">Monitored</span>
+                            @endif
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <p style="margin-top: 10px; font-size: 12px; color: #856404;">
+                <strong>Note:</strong> Pass-through transactions indicate "money in → money out" patterns within a short time window, 
+                which may suggest suspicious cash-out behavior or money flow irregularities.
+            </p>
+        </div>
     </div>
     @endif
 
