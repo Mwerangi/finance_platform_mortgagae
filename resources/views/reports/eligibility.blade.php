@@ -787,6 +787,134 @@
     </div>
     @endif
 
+    <!-- Final Recommendation -->
+    @if(isset($assessment->final_recommendation) && $assessment->final_recommendation)
+    @php
+        $finalRec = is_array($assessment->final_recommendation) 
+            ? $assessment->final_recommendation 
+            : json_decode($assessment->final_recommendation, true);
+    @endphp
+    <div class="section" style="border: 2px solid #0d6efd; border-radius: 5px; padding: 15px; background-color: #f8f9fa;">
+        <div class="section-title" style="color: #0d6efd;">
+            <i class="bi bi-clipboard-check-fill"></i> Final Recommendation & Key Ratios
+        </div>
+        
+        <!-- System Decision -->
+        <div class="alert-box" style="
+            background-color: {{ $finalRec['system_decision'] === 'Eligible' ? '#d1e7dd' : ($finalRec['system_decision'] === 'Conditional' ? '#fff3cd' : '#f8d7da') }};
+            border-left: 4px solid {{ $finalRec['system_decision'] === 'Eligible' ? '#0f5132' : ($finalRec['system_decision'] === 'Conditional' ? '#997404' : '#842029') }};
+            padding: 15px;
+            margin-bottom: 15px;
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="font-weight: bold; font-size: 16px;">
+                    Decision: {{ $finalRec['system_decision'] }}
+                </div>
+                <span class="badge" style="
+                    background-color: {{ $finalRec['confidence_level'] === 'High' ? '#198754' : ($finalRec['confidence_level'] === 'Medium' ? '#ffc107' : '#6c757d') }};
+                    color: white;
+                    padding: 5px 10px;
+                    border-radius: 3px;
+                ">
+                    {{ $finalRec['confidence_level'] }} Confidence
+                </span>
+            </div>
+            <div style="margin-bottom: 8px;">
+                <strong>Recommended Amount:</strong> TZS {{ number_format($finalRec['recommended_loan_amount'] ?? 0, 0) }}
+            </div>
+            <div>
+                <strong>Risk Grade:</strong> 
+                <span class="badge" style="
+                    background-color: {{ $finalRec['risk_grade'] === 'A' ? '#198754' : ($finalRec['risk_grade'] === 'B' ? '#0dcaf0' : ($finalRec['risk_grade'] === 'C' ? '#ffc107' : ($finalRec['risk_grade'] === 'D' ? '#fd7e14' : '#dc3545'))) }};
+                    color: {{ in_array($finalRec['risk_grade'], ['C', 'D']) ? '#000' : '#fff' }};
+                    padding: 3px 8px;
+                    border-radius: 3px;
+                    margin-left: 5px;
+                ">
+                    {{ $finalRec['risk_grade'] }}
+                </span>
+                ({{ round($finalRec['risk_score'] ?? 0) }} points)
+            </div>
+        </div>
+
+        <!-- Key Ratios -->
+        <div style="margin-bottom: 15px;">
+            <div style="font-weight: bold; font-size: 14px; margin-bottom: 10px;">Key Ratios Analysis</div>
+            <div class="grid">
+                @foreach($finalRec['key_ratios'] ?? [] as $key => $ratio)
+                <div class="grid-row">
+                    <div class="grid-cell" style="width: 40%;">
+                        <span class="label">{{ $ratio['label'] }}</span>
+                    </div>
+                    <div class="grid-cell" style="width: 30%;">
+                        <span class="value" style="
+                            color: {{ $ratio['status'] === 'good' ? '#198754' : ($ratio['status'] === 'acceptable' ? '#ffc107' : ($ratio['status'] === 'poor' ? '#dc3545' : '#000')) }};
+                            font-weight: bold;
+                        ">
+                            {{ $ratio['value'] !== null ? number_format($ratio['value'], 1) . '%' : 'N/A' }}
+                        </span>
+                    </div>
+                    <div class="grid-cell" style="width: 30%;">
+                        <span class="badge" style="
+                            background-color: {{ $ratio['status'] === 'good' ? '#198754' : ($ratio['status'] === 'acceptable' ? '#ffc107' : ($ratio['status'] === 'poor' ? '#dc3545' : '#6c757d')) }};
+                            color: {{ $ratio['status'] === 'acceptable' ? '#000' : '#fff' }};
+                            padding: 3px 8px;
+                            border-radius: 3px;
+                        ">
+                            {{ ucfirst($ratio['status']) }}
+                        </span>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+
+        <!-- Summary Reasoning -->
+        <div style="background-color: #e9ecef; padding: 12px; border-radius: 3px; margin-bottom: 15px;">
+            <div style="font-weight: bold; margin-bottom: 5px;">Summary:</div>
+            <div style="font-size: 13px;">{{ $finalRec['summary_reasoning'] }}</div>
+        </div>
+
+        <!-- Supporting & Risk Factors -->
+        <div class="grid" style="margin-bottom: 15px;">
+            @if(isset($finalRec['supporting_factors']) && count($finalRec['supporting_factors']) > 0)
+            <div class="grid-row">
+                <div class="grid-cell">
+                    <div style="font-weight: bold; color: #198754; margin-bottom: 8px;">
+                        ✓ Supporting Factors
+                    </div>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 12px;">
+                        @foreach($finalRec['supporting_factors'] as $factor)
+                        <li style="margin-bottom: 5px; color: #198754;">{{ $factor }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+            @endif
+            
+            @if(isset($finalRec['risk_factors']) && count($finalRec['risk_factors']) > 0)
+            <div class="grid-row">
+                <div class="grid-cell">
+                    <div style="font-weight: bold; color: #dc3545; margin-bottom: 8px;">
+                        ⚠ Risk Factors
+                    </div>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 12px;">
+                        @foreach($finalRec['risk_factors'] as $factor)
+                        <li style="margin-bottom: 5px; color: #dc3545;">{{ $factor }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+            @endif
+        </div>
+
+        <!-- Recommended Action -->
+        <div style="background-color: #cfe2ff; border-left: 4px solid #084298; padding: 12px; border-radius: 3px;">
+            <strong>Recommended Action:</strong> {{ $finalRec['recommended_action'] }}
+        </div>
+    </div>
+    @endif
+
     <!-- Conditions -->
     @php
         $conditions = is_array($assessment->conditions) 

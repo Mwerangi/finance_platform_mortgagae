@@ -552,6 +552,105 @@
                         </div>
                     </div>
 
+                    <!-- Final Recommendation & Key Ratios (Compact) -->
+                    <div v-if="assessment && assessment.final_recommendation" class="card mb-4 border-primary">
+                        <div class="card-header bg-primary text-white py-2">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-clipboard-check-fill me-2"></i>Final Recommendation & Key Ratios
+                            </h6>
+                        </div>
+                        <div class="card-body p-3">
+                            <!-- Decision Summary - Compact -->
+                            <div class="row align-items-center mb-3 pb-2 border-bottom">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge fs-6" :class="{
+                                            'bg-success': assessment.final_recommendation.system_decision === 'Eligible',
+                                            'bg-warning text-dark': assessment.final_recommendation.system_decision === 'Conditional',
+                                            'bg-danger': assessment.final_recommendation.system_decision === 'Outside Policy'
+                                        }">
+                                            {{ assessment.final_recommendation.system_decision }}
+                                        </span>
+                                        <small class="badge bg-secondary">
+                                            {{ assessment.final_recommendation.confidence_level }} Confidence
+                                        </small>
+                                    </div>
+                                    <div class="mt-2">
+                                        <small class="text-muted d-block">Recommended Amount</small>
+                                        <strong class="fs-6">TZS {{ Number(assessment.final_recommendation.recommended_loan_amount || 0).toLocaleString() }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-md-end">
+                                    <small class="text-muted d-block">Risk Assessment</small>
+                                    <span class="badge fs-5" :class="{
+                                        'bg-success': assessment.final_recommendation.risk_grade === 'A',
+                                        'bg-info': assessment.final_recommendation.risk_grade === 'B',
+                                        'bg-warning text-dark': assessment.final_recommendation.risk_grade === 'C',
+                                        'bg-orange': assessment.final_recommendation.risk_grade === 'D',
+                                        'bg-danger': assessment.final_recommendation.risk_grade === 'E'
+                                    }">
+                                        Grade {{ assessment.final_recommendation.risk_grade }}
+                                    </span>
+                                    <small class="d-block mt-1">{{ Number(assessment.final_recommendation.risk_score || 0).toFixed(0) }} risk points</small>
+                                </div>
+                            </div>
+
+                            <!-- Key Ratios - Compact Table -->
+                            <div class="mb-3">
+                                <h6 class="mb-2 small text-muted"><strong>KEY RATIOS</strong></h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 40%">Metric</th>
+                                                <th style="width: 25%" class="text-center">Value</th>
+                                                <th style="width: 20%" class="text-center">Threshold</th>
+                                                <th style="width: 15%" class="text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(ratio, key) in assessment.final_recommendation.key_ratios" :key="key">
+                                                <td><small>{{ ratio.label }}</small></td>
+                                                <td class="text-center" :class="{
+                                                    'text-success fw-bold': ratio.status === 'good',
+                                                    'text-warning fw-bold': ratio.status === 'acceptable',
+                                                    'text-danger fw-bold': ratio.status === 'poor'
+                                                }">
+                                                    <small>{{ ratio.value !== null ? Number(ratio.value).toFixed(1) + '%' : 'N/A' }}</small>
+                                                </td>
+                                                <td class="text-center"><small class="text-muted">{{ ratio.threshold }}%</small></td>
+                                                <td class="text-center">
+                                                    <span class="badge badge-sm" :class="{
+                                                        'bg-success': ratio.status === 'good',
+                                                        'bg-warning text-dark': ratio.status === 'acceptable',
+                                                        'bg-danger': ratio.status === 'poor',
+                                                        'bg-secondary': ratio.status === 'n/a'
+                                                    }">
+                                                        {{ ratio.status }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Summary - Compact -->
+                            <div class="alert alert-light mb-2 py-2">
+                                <small><strong>Summary:</strong> {{ assessment.final_recommendation.summary_reasoning }}</small>
+                            </div>
+
+                            <!-- Action - Compact -->
+                            <div class="alert mb-0 py-2" :class="{
+                                'alert-success': assessment.final_recommendation.system_decision === 'Eligible',
+                                'alert-warning': assessment.final_recommendation.system_decision === 'Conditional',
+                                'alert-danger': assessment.final_recommendation.system_decision === 'Outside Policy'
+                            }">
+                                <small><strong><i class="bi bi-arrow-right-circle-fill me-1"></i>Recommended Action:</strong> {{ assessment.final_recommendation.recommended_action }}</small>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Policy Breaches (if declined) -->
                     <div v-if="isDeclined && assessment.policy_breaches && assessment.policy_breaches.length > 0" class="card mb-4">
                         <div class="card-header bg-danger text-white">

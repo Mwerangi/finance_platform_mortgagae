@@ -120,6 +120,7 @@ class ProspectService
                 'policy_breaches' => $result['policy_breaches'],
                 'conditions' => $result['conditions'],
                 'is_recommendable' => $result['is_recommendable'],
+                'final_recommendation' => $result['final_recommendation'] ?? null,
                 
                 // Interest calculations (from eligibility result)
                 'interest_method' => $result['interest_method'] ?? 'reducing_balance',

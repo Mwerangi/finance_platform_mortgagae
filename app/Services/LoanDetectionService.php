@@ -127,12 +127,20 @@ class LoanDetectionService
             $averageAmount = $group->avg('debit');
             $occurrences = $group->count();
 
+            // Calculate consistency score (0-100)
+            $consistencyScore = $this->calculateConsistencyScore($group);
+            
+            // Enhanced confidence based on consistency
+            $enhancedConfidence = $this->enhanceConfidenceWithConsistency($confidence, $consistencyScore);
+
             $detectedLoans[] = [
                 'description' => $sampleTransaction['description'],
                 'lender_name' => $this->extractLenderName($description, $matchedKeyword),
                 'monthly_amount' => round($averageAmount, 2),
                 'occurrences' => $occurrences,
-                'confidence' => $confidence,
+                'confidence' => $enhancedConfidence,
+                'consistency_score' => $consistencyScore,
+                'consistency_level' => $this->getConsistencyLevel($consistencyScore),
                 'reason' => $reason,
                 'keyword_matched' => $matchedKeyword ? $matchedKeyword['keyword'] : null,
                 'first_seen' => $group->min('date'),
@@ -416,6 +424,207 @@ class LoanDetectionService
 
             return true; // Keep this transaction
         });
+    }
+
+    /**
+     * Calculate consistency score (0-100) for a group of transactions
+     * 
+     * @param Collection $transactions
+     * @return float
+     */
+    protected function calculateConsistencyScore(Collection $transactions): float
+    {
+        if ($transactions->count() < 2) {
+            return 0;
+        }
+
+        // 1. Recurrence Pattern Score (40 points)
+        $recurrenceScore = $this->calculateRecurrenceScore($transactions);
+
+        // 2. Amount Consistency Score (30 points)
+        $amountScore = $this->calculateAmountConsistencyScore($transactions);
+
+        // 3. Temporal Regularity Score (30 points)
+        $temporalScore = $this->calculateTemporalRegularityScore($transactions);
+
+        $totalScore = ($recurrenceScore * 0.4) + ($amountScore * 0.3) + ($temporalScore * 0.3);
+
+        return round($totalScore, 2);
+    }
+
+    /**
+     * Calculate recurrence pattern score
+     * 
+     * @param Collection $transactions
+     * @return float
+     */
+    protected function calculateRecurrenceScore(Collection $transactions): float
+    {
+        $count = $transactions->count();
+
+        // More occurrences = higher score
+        if ($count >= 6) {
+            return 100;
+        } elseif ($count >= 4) {
+            return 80;
+        } elseif ($count >= 3) {
+            return 60;
+        } elseif ($count >= 2) {
+            return 40;
+        }
+
+        return 20;
+    }
+
+    /**
+     * Calculate amount consistency score
+     * 
+     * @param Collection $transactions
+     * @return float
+     */
+    protected function calculateAmountConsistencyScore(Collection $transactions): float
+    {
+        $amounts = $transactions->pluck('debit');
+        $avgAmount = $amounts->avg();
+        
+        if ($avgAmount == 0) {
+            return 0;
+        }
+
+        // Calculate coefficient of variation (CV)
+        $stdDev = $this->calculateStdDev($amounts->toArray());
+        $coefficientOfVariation = ($stdDev / $avgAmount) * 100;
+
+        // Lower CV = higher consistency
+        // CV < 5% = 100 points
+        // CV < 10% = 80 points
+        // CV < 15% = 60 points
+        // CV < 20% = 40 points
+        // CV >= 20% = 20 points
+        if ($coefficientOfVariation < 5) {
+            return 100;
+        } elseif ($coefficientOfVariation < 10) {
+            return 80;
+        } elseif ($coefficientOfVariation < 15) {
+            return 60;
+        } elseif ($coefficientOfVariation < 20) {
+            return 40;
+        }
+
+        return 20;
+    }
+
+    /**
+     * Calculate temporal regularity score
+     * 
+     * @param Collection $transactions
+     * @return float
+     */
+    protected function calculateTemporalRegularityScore(Collection $transactions): float
+    {
+        if ($transactions->count() < 2) {
+            return 0;
+        }
+
+        $dates = $transactions->pluck('date')->sort()->values();
+        $intervals = [];
+
+        for ($i = 1; $i < $dates->count(); $i++) {
+            $date1 = \Carbon\Carbon::parse($dates[$i - 1]);
+            $date2 = \Carbon\Carbon::parse($dates[$i]);
+            $daysDiff = $date1->diffInDays($date2);
+            $intervals[] = $daysDiff;
+        }
+
+        // Calculate average interval and standard deviation
+        $avgInterval = collect($intervals)->avg();
+        $stdDev = $this->calculateStdDev($intervals);
+
+        // Consistent monthly intervals (28-31 days) with low variance = high score
+        $isMonthly = $avgInterval >= 25 && $avgInterval <= 35;
+        $coefficientOfVariation = $avgInterval > 0 ? ($stdDev / $avgInterval) * 100 : 100;
+
+        if ($isMonthly && $coefficientOfVariation < 10) {
+            return 100;
+        } elseif ($isMonthly && $coefficientOfVariation < 20) {
+            return 80;
+        } elseif ($isMonthly) {
+            return 60;
+        } elseif ($coefficientOfVariation < 15) {
+            return 50;
+        } elseif ($coefficientOfVariation < 25) {
+            return 30;
+        }
+
+        return 20;
+    }
+
+    /**
+     * Calculate standard deviation
+     * 
+     * @param array $values
+     * @return float
+     */
+    protected function calculateStdDev(array $values): float
+    {
+        $count = count($values);
+        
+        if ($count < 2) {
+            return 0;
+        }
+
+        $mean = array_sum($values) / $count;
+        $variance = array_sum(array_map(function($x) use ($mean) {
+            return pow($x - $mean, 2);
+        }, $values)) / $count;
+
+        return sqrt($variance);
+    }
+
+    /**
+     * Enhance confidence level based on consistency score
+     * 
+     * @param string $baseConfidence
+     * @param float $consistencyScore
+     * @return string
+     */
+    protected function enhanceConfidenceWithConsistency(string $baseConfidence, float $consistencyScore): string
+    {
+        // High consistency (>80) can upgrade confidence
+        if ($consistencyScore >= 80) {
+            return 'high';
+        }
+
+        // Medium consistency (60-80) maintains or upgrades to medium
+        if ($consistencyScore >= 60) {
+            return $baseConfidence === 'low' ? 'medium' : $baseConfidence;
+        }
+
+        // Low consistency (<60) may downgrade
+        if ($consistencyScore < 40 && $baseConfidence === 'high') {
+            return 'medium';
+        }
+
+        return $baseConfidence;
+    }
+
+    /**
+     * Get consistency level label
+     * 
+     * @param float $score
+     * @return string
+     */
+    protected function getConsistencyLevel(float $score): string
+    {
+        if ($score >= 80) {
+            return 'Very High - Definite Loan Pattern';
+        } elseif ($score >= 60) {
+            return 'High - Likely Loan Repayment';
+        } elseif ($score >= 40) {
+            return 'Medium - Possible Loan';
+        } else {
+            return 'Low - Uncertain';
+        }
     }
 
     /**

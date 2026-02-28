@@ -778,6 +778,137 @@
         </div>
         @endif
 
+        <!-- Final Recommendation -->
+        @if(isset($assessment->final_recommendation) && $assessment->final_recommendation)
+        @php
+            $finalRec = is_array($assessment->final_recommendation) 
+                ? $assessment->final_recommendation 
+                : json_decode($assessment->final_recommendation, true);
+        @endphp
+        <div style="margin-bottom: 10px;">
+            <section class="section" style="border: 2px solid #2563eb; padding: 12px; background: #eff6ff;">
+                <h2 class="section-title" style="color: #2563eb; font-size: 12px;">
+                    Final Recommendation & Key Ratios
+                </h2>
+                
+                <!-- System Decision -->
+                <div style="
+                    padding: 10px; 
+                    margin-bottom: 10px; 
+                    background: {{ $finalRec['system_decision'] === 'Eligible' ? '#d1f4dd' : ($finalRec['system_decision'] === 'Conditional' ? '#fef3c7' : '#fee2e2') }}; 
+                    border-left: 3px solid {{ $finalRec['system_decision'] === 'Eligible' ? '#10b981' : ($finalRec['system_decision'] === 'Conditional' ? '#f59e0b' : '#ef4444') }};
+                ">
+                    <div style="font-size: 11px; font-weight: 700; margin-bottom: 5px;">
+                        Decision: {{ $finalRec['system_decision'] }}
+                        <span class="pill" style="
+                            float: right;
+                            background: {{ $finalRec['confidence_level'] === 'High' ? '#10b981' : ($finalRec['confidence_level'] === 'Medium' ? '#f59e0b' : '#6b7280') }};
+                            color: white;
+                            font-size: 8px;
+                            padding: 2px 6px;
+                        ">
+                            {{ $finalRec['confidence_level'] }} Confidence
+                        </span>
+                    </div>
+                    <div style="font-size: 9px; margin-bottom: 3px;">
+                        <strong>Recommended Amount:</strong> TZS {{ number_format($finalRec['recommended_loan_amount'] ?? 0, 0) }}
+                    </div>
+                    <div style="font-size: 9px;">
+                        <strong>Risk Grade:</strong> 
+                        <span class="pill" style="
+                            background: {{ $finalRec['risk_grade'] === 'A' ? '#10b981' : ($finalRec['risk_grade'] === 'B' ? '#06b6d4' : ($finalRec['risk_grade'] === 'C' ? '#f59e0b' : ($finalRec['risk_grade'] === 'D' ? '#f97316' : '#ef4444'))) }};
+                            color: {{ in_array($finalRec['risk_grade'], ['C', 'D']) ? '#000' : '#fff' }};
+                            font-size: 8px;
+                            padding: 2px 5px;
+                        ">
+                            {{ $finalRec['risk_grade'] }}
+                        </span>
+                        ({{ round($finalRec['risk_score'] ?? 0) }} pts)
+                    </div>
+                </div>
+
+                <!-- Key Ratios -->
+                <div style="margin-bottom: 10px;">
+                    <div style="font-weight: 700; font-size: 10px; margin-bottom: 6px;">Key Ratios Analysis</div>
+                    <table class="table" style="font-size: 9px;">
+                        @foreach($finalRec['key_ratios'] ?? [] as $key => $ratio)
+                        <tr>
+                            <td style="font-weight: 600; width: 40%;">{{ $ratio['label'] }}</td>
+                            <td style="
+                                width: 30%; 
+                                font-weight: 700;
+                                color: {{ $ratio['status'] === 'good' ? '#10b981' : ($ratio['status'] === 'acceptable' ? '#f59e0b' : ($ratio['status'] === 'poor' ? '#ef4444' : '#000')) }};
+                            ">
+                                {{ $ratio['value'] !== null ? number_format($ratio['value'], 1) . '%' : 'N/A' }}
+                            </td>
+                            <td style="width: 30%;">
+                                <span class="pill" style="
+                                    background: {{ $ratio['status'] === 'good' ? '#10b981' : ($ratio['status'] === 'acceptable' ? '#f59e0b' : ($ratio['status'] === 'poor' ? '#ef4444' : '#6b7280')) }};
+                                    color: {{ $ratio['status'] === 'acceptable' ? '#000' : '#fff' }};
+                                    font-size: 8px;
+                                    padding: 2px 5px;
+                                ">
+                                    {{ ucfirst($ratio['status']) }}
+                                </span>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </table>
+                </div>
+
+                <!-- Summary -->
+                <div style="background: #e0e7ff; padding: 8px; border-radius: 3px; margin-bottom: 10px; font-size: 9px;">
+                    <div style="font-weight: 700; margin-bottom: 3px;">Summary:</div>
+                    <div>{{ $finalRec['summary_reasoning'] }}</div>
+                </div>
+
+                <!-- Factors -->
+                @if((isset($finalRec['supporting_factors']) && count($finalRec['supporting_factors']) > 0) || (isset($finalRec['risk_factors']) && count($finalRec['risk_factors']) > 0))
+                <table class="table" style="font-size: 9px; margin-bottom: 10px;">
+                    @if(isset($finalRec['supporting_factors']) && count($finalRec['supporting_factors']) > 0)
+                    <tr>
+                        <td style="vertical-align: top; width: 50%; padding-right: 5px;">
+                            <div style="font-weight: 700; color: #10b981; margin-bottom: 4px;">✓ Supporting Factors</div>
+                            <ul style="margin: 0; padding-left: 15px; color: #10b981;">
+                                @foreach($finalRec['supporting_factors'] as $factor)
+                                <li style="margin-bottom: 2px;">{{ $factor }}</li>
+                                @endforeach
+                            </ul>
+                        </td>
+                        @if(isset($finalRec['risk_factors']) && count($finalRec['risk_factors']) > 0)
+                        <td style="vertical-align: top; width: 50%; padding-left: 5px;">
+                            <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">⚠ Risk Factors</div>
+                            <ul style="margin: 0; padding-left: 15px; color: #ef4444;">
+                                @foreach($finalRec['risk_factors'] as $factor)
+                                <li style="margin-bottom: 2px;">{{ $factor }}</li>
+                                @endforeach
+                            </ul>
+                        </td>
+                        @endif
+                    </tr>
+                    @elseif(isset($finalRec['risk_factors']) && count($finalRec['risk_factors']) > 0)
+                    <tr>
+                        <td>
+                            <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">⚠ Risk Factors</div>
+                            <ul style="margin: 0; padding-left: 15px; color: #ef4444;">
+                                @foreach($finalRec['risk_factors'] as $factor)
+                                <li style="margin-bottom: 2px;">{{ $factor }}</li>
+                                @endforeach
+                            </ul>
+                        </td>
+                    </tr>
+                    @endif
+                </table>
+                @endif
+
+                <!-- Action -->
+                <div style="background: #dbeafe; border-left: 3px solid #2563eb; padding: 8px; font-size: 9px;">
+                    <strong>Recommended Action:</strong> {{ $finalRec['recommended_action'] }}
+                </div>
+            </section>
+        </div>
+        @endif
+
         <!-- Income & Affordability Breakdown -->
         @if($assessment->gross_monthly_income || $assessment->max_loan_from_affordability)
         <div style="margin-bottom: 10px;">

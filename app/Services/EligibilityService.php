@@ -98,6 +98,17 @@ class EligibilityService
             $loanProduct,
             $analytics
         );
+        
+        // Generate final recommendation
+        $finalRecommendation = $this->generateFinalRecommendation(
+            $policyResult,
+            $ratios,
+            $riskData,
+            $incomeData,
+            $maxLoanData,
+            $requestedAmount,
+            $analytics
+        );
 
         // Calculate amortization details
         $amortization = $this->calculateAmortizationDetails(
@@ -160,6 +171,9 @@ class EligibilityService
             'policy_breaches' => $policyResult['breaches'],
             'conditions' => $policyResult['conditions'],
             'is_recommendable' => $policyResult['is_recommendable'],
+            
+            // Final Recommendation
+            'final_recommendation' => $finalRecommendation,
             
             // Stress test
             'is_stress_test' => !empty($stressTestParams),
@@ -648,6 +662,388 @@ class EligibilityService
         }
         
         return $explanation;
+    }
+
+    /**
+     * Generate final recommendation with all key ratios and decision
+     * 
+     * @param array $policyResult
+     * @param array $ratios
+     * @param array $riskData
+     * @param array $incomeData
+     * @param array $maxLoanData
+     * @param float $requestedAmount
+     * @param StatementAnalytics $analytics
+     * @return array
+     */
+    private function generateFinalRecommendation(
+        array $policyResult,
+        array $ratios,
+        array $riskData,
+        array $incomeData,
+        array $maxLoanData,
+        float $requestedAmount,
+        StatementAnalytics $analytics
+    ): array {
+        // Determine system decision (map to required format)
+        $systemDecision = match($policyResult['decision']) {
+            'eligible' => 'Eligible',
+            'conditional' => 'Conditional',
+            'outside_policy' => 'Outside Policy',
+            default => 'Declined'
+        };
+
+        // Determine recommended loan amount
+        $recommendedAmount = min($requestedAmount, $maxLoanData['final_max_loan']);
+
+        // Calculate confidence level
+        $confidenceLevel = $this->calculateDecisionConfidence($policyResult, $riskData, $incomeData);
+
+        // Compile supporting factors
+        $supportingFactors = $this->identifySupportingFactors($incomeData, $ratios, $riskData, $analytics);
+
+        // Compile risk factors
+        $riskFactors = $this->identifyRiskFactors($ratios, $riskData, $incomeData, $analytics, $policyResult);
+
+        // Generate summary reasoning (1-3 sentences)
+        $summaryReasoning = $this->generateSummaryReasoning(
+            $systemDecision,
+            $riskData,
+            $ratios,
+            $incomeData,
+            $recommendedAmount,
+            $requestedAmount
+        );
+
+        // Determine recommended action
+        $recommendedAction = $this->determineRecommendedAction($systemDecision, $policyResult, $riskData);
+
+        return [
+            'system_decision' => $systemDecision,
+            'recommended_loan_amount' => $recommendedAmount,
+            'confidence_level' => $confidenceLevel,
+            
+            // Key ratios
+            'key_ratios' => [
+                'dti' => [
+                    'value' => round($ratios['dti'], 2),
+                    'label' => 'Debt-to-Income Ratio',
+                    'status' => $this->getRatioStatus($ratios['dti'], 35, 45),
+                    'threshold' => 45,
+                ],
+                'dsr' => [
+                    'value' => round($ratios['dsr'], 2),
+                    'label' => 'Debt Service Ratio',
+                    'status' => $this->getRatioStatus($ratios['dsr'], 40, 50),
+                    'threshold' => 50,
+                ],
+                'ltv' => [
+                    'value' => $ratios['ltv'] !== null ? round($ratios['ltv'], 2) : null,
+                    'label' => 'Loan-to-Value Ratio',
+                    'status' => $ratios['ltv'] !== null ? $this->getRatioStatus($ratios['ltv'], 70, 80) : 'n/a',
+                    'threshold' => 80,
+                ],
+                'income_stability' => [
+                    'value' => round($analytics->income_stability_score, 2),
+                    'label' => 'Income Stability Score',
+                    'status' => $this->getRatioStatus($analytics->income_stability_score, 60, 40, true), // Higher is better
+                    'threshold' => 40,
+                ],
+                'cash_flow_volatility' => [
+                    'value' => round($analytics->cash_flow_volatility_score, 2),
+                    'label' => 'Cash Flow Volatility',
+                    'status' => $this->getRatioStatus($analytics->cash_flow_volatility_score, 50, 70),
+                    'threshold' => 70,
+                ],
+            ],
+            
+            'risk_grade' => $riskData['grade'],
+            'risk_score' => round($riskData['score'], 2),
+            'conditions' => $policyResult['conditions'],
+            'supporting_factors' => $supportingFactors,
+            'risk_factors' => $riskFactors,
+            'summary_reasoning' => $summaryReasoning,
+            'recommended_action' => $recommendedAction,
+        ];
+    }
+
+    /**
+     * Calculate decision confidence level
+     * 
+     * @param array $policyResult
+     * @param array $riskData
+     * @param array $incomeData
+     * @return string
+     */
+    private function calculateDecisionConfidence(array $policyResult, array $riskData, array $incomeData): string
+    {
+        $score = 0;
+        
+        // Decision quality (40 points)
+        if ($policyResult['decision'] === 'eligible') {
+            $score += 40;
+        } elseif ($policyResult['decision'] === 'conditional' && count($policyResult['conditions']) <= 2) {
+            $score += 30;
+        } elseif ($policyResult['decision'] === 'conditional') {
+            $score += 20;
+        }
+        
+        // Risk grade (35 points)
+        $riskPoints = match($riskData['grade']) {
+            'A' => 35,
+            'B' => 28,
+            'C' => 20,
+            'D' => 12,
+            'E' => 5,
+            default => 0
+        };
+        $score += $riskPoints;
+        
+        // Income stability (25 points)
+        if ($incomeData['gross_income'] > 1000000 && $incomeData['surplus_after_loan'] > 300000) {
+            $score += 25;
+        } elseif ($incomeData['gross_income'] > 500000 && $incomeData['surplus_after_loan'] > 200000) {
+            $score += 18;
+        } elseif ($incomeData['surplus_after_loan'] > 100000) {
+            $score += 12;
+        } else {
+            $score += 5;
+        }
+        
+        // Map score to confidence level
+        if ($score >= 80) {
+            return 'High';
+        } elseif ($score >= 60) {
+            return 'Medium';
+        } else {
+            return 'Low';
+        }
+    }
+
+    /**
+     * Identify supporting factors
+     * 
+     * @param array $incomeData
+     * @param array $ratios
+     * @param array $riskData
+     * @param StatementAnalytics $analytics
+     * @return array
+     */
+    private function identifySupportingFactors(array $incomeData, array $ratios, array $riskData, StatementAnalytics $analytics): array
+    {
+        $factors = [];
+        
+        // Good risk grade
+        if (in_array($riskData['grade'], ['A', 'B'])) {
+            $factors[] = "Strong risk profile (Grade {$riskData['grade']})";
+        }
+        
+        // Low DTI
+        if ($ratios['dti'] < 35) {
+            $factors[] = "Low debt burden (DTI: {$ratios['dti']}%)";
+        }
+        
+        // High income stability
+        if ($analytics->income_stability_score >= 70) {
+            $factors[] = "Consistent income pattern (Stability: {$analytics->income_stability_score}%)";
+        }
+        
+        // Adequate surplus
+        if ($incomeData['surplus_after_loan'] > 300000) {
+            $surplus = number_format($incomeData['surplus_after_loan'], 0);
+            $factors[] = "Strong surplus after loan payment (TZS {$surplus})";
+        }
+        
+        // Low volatility
+        if ($analytics->cash_flow_volatility_score < 40) {
+            $factors[] = "Stable cash flow patterns";
+        }
+        
+        // No bounces
+        if ($analytics->bounce_count === 0) {
+            $factors[] = "No bounced transactions";
+        }
+        
+        // Regular income
+        if ($analytics->income_classification->value === 'salary') {
+            $factors[] = "Regular salary income";
+        }
+        
+        return $factors;
+    }
+
+    /**
+     * Identify risk factors
+     * 
+     * @param array $ratios
+     * @param array $riskData
+     * @param array $incomeData
+     * @param StatementAnalytics $analytics
+     * @param array $policyResult
+     * @return array
+     */
+    private function identifyRiskFactors(array $ratios, array $riskData, array $incomeData, StatementAnalytics $analytics, array $policyResult): array
+    {
+        $factors = [];
+        
+        // High DTI
+        if ($ratios['dti'] >= 45) {
+            $factors[] = "High debt-to-income ratio ({$ratios['dti']}%)";
+        } elseif ($ratios['dti'] >= 35) {
+            $factors[] = "Elevated debt burden ({$ratios['dti']}% DTI)";
+        }
+        
+        // High DSR
+        if ($ratios['dsr'] >= 50) {
+            $factors[] = "High debt service ratio ({$ratios['dsr']}%)";
+        }
+        
+        // Poor risk grade
+        if (in_array($riskData['grade'], ['D', 'E'])) {
+            $factors[] = "Weak risk profile (Grade {$riskData['grade']})";
+        }
+        
+        // Low income stability
+        if ($analytics->income_stability_score < 50) {
+            $factors[] = "Irregular income pattern (Stability: {$analytics->income_stability_score}%)";
+        }
+        
+        // High volatility
+        if ($analytics->cash_flow_volatility_score > 70) {
+            $factors[] = "High cash flow volatility ({$analytics->cash_flow_volatility_score}%)";
+        }
+        
+        // Low surplus
+        if ($incomeData['surplus_after_loan'] < 200000) {
+            $surplus = number_format($incomeData['surplus_after_loan'], 0);
+            $factors[] = "Limited surplus after loan payment (TZS {$surplus})";
+        }
+        
+        // Bounces
+        if ($analytics->bounce_count > 0) {
+            $factors[] = "Bounced transactions detected ({$analytics->bounce_count})";
+        }
+        
+        // Loan stacking
+        if (($analytics->detected_loan_count ?? 0) >= 3) {
+            $factors[] = "Multiple existing loans detected";
+        }
+        
+        // Policy breaches
+        foreach ($policyResult['breaches'] as $breach) {
+            $rule = str_replace('_', ' ', $breach['rule']);
+            $factors[] = ucfirst($rule);
+        }
+        
+        return $factors;
+    }
+
+    /**
+     * Generate summary reasoning
+     * 
+     * @param string $systemDecision
+     * @param array $riskData
+     * @param array $ratios
+     * @param array $incomeData
+     * @param float $recommendedAmount
+     * @param float $requestedAmount
+     * @return string
+     */
+    private function generateSummaryReasoning(
+        string $systemDecision,
+        array $riskData,
+        array $ratios,
+        array $incomeData,
+        float $recommendedAmount,
+        float $requestedAmount
+    ): string {
+        $recommendedFormatted = number_format($recommendedAmount, 0);
+        $requestedFormatted = number_format($requestedAmount, 0);
+        
+        if ($systemDecision === 'Eligible') {
+            if ($recommendedAmount >= $requestedAmount) {
+                return "Applicant qualifies for the full requested amount of TZS {$requestedFormatted}. " .
+                       "Risk Grade {$riskData['grade']} with healthy DTI ({$ratios['dti']}%) and DSR ({$ratios['dsr']}%). " .
+                       "Strong affordability and minimal policy concerns.";
+            } else {
+                return "Applicant is eligible but recommended loan amount is TZS {$recommendedFormatted}, lower than requested TZS {$requestedFormatted} due to affordability constraints. " .
+                       "Risk Grade {$riskData['grade']} with DTI of {$ratios['dti']}% and DSR of {$ratios['dsr']}%.";
+            }
+        }
+        
+        if ($systemDecision === 'Conditional') {
+            return "Applicant meets basic criteria but has some concerns requiring conditions. " .
+                   "Risk Grade {$riskData['grade']} with DTI of {$ratios['dti']}% and DSR of {$ratios['dsr']}%. " .
+                   "Recommended amount: TZS {$recommendedFormatted}, subject to addressing specified conditions.";
+        }
+        
+        if ($systemDecision === 'Outside Policy') {
+            return "Application falls outside standard policy limits. " .
+                   "DTI of {$ratios['dti']}% and/or DSR of {$ratios['dsr']}% exceed thresholds. " .
+                   "Risk Grade {$riskData['grade']}. Requires management override for approval.";
+        }
+        
+        return "Application does not meet minimum eligibility requirements at this time.";
+    }
+
+    /**
+     * Determine recommended action
+     * 
+     * @param string $systemDecision
+     * @param array $policyResult
+     * @param array $riskData
+     * @return string
+     */
+    private function determineRecommendedAction(string $systemDecision, array $policyResult, array $riskData): string
+    {
+        if ($systemDecision === 'Eligible') {
+            return 'Approve application and proceed with loan documentation.';
+        }
+        
+        if ($systemDecision === 'Conditional') {
+            $conditionCount = count($policyResult['conditions']);
+            return "Approve subject to {$conditionCount} condition(s). Review and confirm mitigation measures before final approval.";
+        }
+        
+        if ($systemDecision === 'Outside Policy') {
+            if (in_array($riskData['grade'], ['A', 'B', 'C'])) {
+                return 'Refer to Credit Committee for exception approval. Applicant shows reasonable risk profile despite policy breach.';
+            } else {
+                return 'Recommend decline unless exceptional circumstances exist. High risk profile combined with policy breaches.';
+            }
+        }
+        
+        return 'Decline application. Does not meet minimum requirements.';
+    }
+
+    /**
+     * Get ratio status
+     * 
+     * @param float $value
+     * @param float $goodThreshold
+     * @param float $badThreshold
+     * @param bool $higherIsBetter
+     * @return string
+     */
+    private function getRatioStatus(float $value, float $goodThreshold, float $badThreshold, bool $higherIsBetter = false): string
+    {
+        if ($higherIsBetter) {
+            if ($value >= $goodThreshold) {
+                return 'good';
+            } elseif ($value >= $badThreshold) {
+                return 'acceptable';
+            } else {
+                return 'poor';
+            }
+        } else {
+            if ($value <= $goodThreshold) {
+                return 'good';
+            } elseif ($value <= $badThreshold) {
+                return 'acceptable';
+            } else {
+                return 'poor';
+            }
+        }
     }
 
     /**
