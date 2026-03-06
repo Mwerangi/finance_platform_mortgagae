@@ -804,8 +804,7 @@
             background-color: {{ $finalRec['system_decision'] === 'Eligible' ? '#d1e7dd' : ($finalRec['system_decision'] === 'Conditional' ? '#fff3cd' : '#f8d7da') }};
             border-left: 4px solid {{ $finalRec['system_decision'] === 'Eligible' ? '#0f5132' : ($finalRec['system_decision'] === 'Conditional' ? '#997404' : '#842029') }};
             padding: 15px;
-            margin-bottom: 15px;
-        ">
+            margin-bottom: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <div style="font-weight: bold; font-size: 16px;">
                     Decision: {{ $finalRec['system_decision'] }}
@@ -814,8 +813,7 @@
                     background-color: {{ $finalRec['confidence_level'] === 'High' ? '#198754' : ($finalRec['confidence_level'] === 'Medium' ? '#ffc107' : '#6c757d') }};
                     color: white;
                     padding: 5px 10px;
-                    border-radius: 3px;
-                ">
+                    border-radius: 3px;">
                     {{ $finalRec['confidence_level'] }} Confidence
                 </span>
             </div>
@@ -1257,11 +1255,53 @@
             @endif
         </div>
 
-        @if($analytics->suspicious_deposits_flagged)
-        <div style="background: #fef2f2; padding: 10px; border-left: 4px solid #dc2626; margin-top: 12px; border-radius: 3px;">
-            <div style="font-weight: 600; color: #991b1b; font-size: 8pt; margin-bottom: 4px;">⚠️ SUSPICIOUS DEPOSITS FLAGGED</div>
-            <div style="font-size: 7pt; color: #7f1d1d;">
-                Large unexplained deposits detected. {{ $analytics->bulk_deposit_count ?? 0 }} bulk deposit(s) identified with unknown source.
+        @if($analytics->suspicious_deposits_flagged && $analytics->bulk_deposit_details && count($analytics->bulk_deposit_details) > 0)
+        <div style="border: 2px solid #dc2626; background: #fef2f2; padding: 10px; margin-top: 12px; border-radius: 4px;">
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                <div style="font-weight: 600; color: #991b1b; font-size: 9pt; flex-grow: 1;">
+                    ⚠️ Suspicious Deposits Detected
+                </div>
+                <span style="background: #dc2626; color: white; padding: 2px 6px; border-radius: 3px; font-size: 7pt; font-weight: 600;">
+                    {{ $analytics->bulk_deposit_count ?? 0 }} Found
+                </span>
+            </div>
+            <div style="font-size: 7.5pt; color: #7f1d1d; margin-bottom: 8px; line-height: 1.3;">
+                Large unexplained deposits require manual verification. Review transaction details below:
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 6px;">
+                <thead>
+                    <tr style="background: #fee2e2; border-bottom: 2px solid #dc2626;">
+                        <th style="padding: 4px 6px; text-align: left; font-weight: 600; color: #991b1b; font-size: 7.5pt;">Date</th>
+                        <th style="padding: 4px 6px; text-align: right; font-weight: 600; color: #991b1b; font-size: 7.5pt;">Amount (TZS)</th>
+                        <th style="padding: 4px 6px; text-align: left; font-weight: 600; color: #991b1b; font-size: 7.5pt;">Description</th>
+                        <th style="padding: 4px 6px; text-align: left; font-weight: 600; color: #991b1b; font-size: 7.5pt;">Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($analytics->bulk_deposit_details as $deposit)
+                        @if($deposit['suspicious'] ?? false)
+                        <tr style="border-bottom: 1px solid #fecaca;">
+                            <td style="padding: 4px 6px; font-size: 7pt; color: #7f1d1d;">{{ $deposit['date'] ?? 'N/A' }}</td>
+                            <td style="padding: 4px 6px; text-align: right; font-size: 7pt; color: #7f1d1d; font-weight: 600;">
+                                {{ number_format($deposit['amount'] ?? 0, 0) }}
+                            </td>
+                            <td style="padding: 4px 6px; font-size: 7pt; color: #7f1d1d;">
+                                {{ \Illuminate\Support\Str::limit($deposit['description'] ?? 'No description', 40) }}
+                            </td>
+                            <td style="padding: 4px 6px; font-size: 6.5pt; color: #7f1d1d;">
+                                <span style="background: #fecaca; padding: 2px 4px; border-radius: 2px;">
+                                    {{ ucfirst($deposit['source'] ?? 'Unknown') }}
+                                </span>
+                            </td>
+                        </tr>
+                        @endif
+                    @endforeach
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 8px; font-size: 7pt; color: #7f1d1d; font-style: italic; line-height: 1.3;">
+                <strong>Note:</strong> Verify these transactions with supporting documentation before final approval decision.
             </div>
         </div>
         @endif

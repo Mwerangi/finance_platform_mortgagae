@@ -1,1409 +1,1330 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pre-Qualification Report - {{ $prospect->first_name }} {{ $prospect->last_name }}</title>
-
+    <meta charset="UTF-8">
+    <title>Mortgage Pre-Qualification Report - {{ $prospect->first_name }} {{ $prospect->last_name }}</title>
     <style>
-        /* Print setup (A4) */
-        @page {
-            size: A4;
-            margin: 12mm;
-        }
-
-        :root {
-            --ink: #0f172a;          /* slate-900 */
-            --muted: #64748b;        /* slate-500 */
-            --line: #e2e8f0;         /* slate-200 */
-            --card: #f8fafc;         /* slate-50 */
-            --brand: #0a3d62;        /* deep blue */
-            --ok: #16a34a;           /* green */
-            --warn: #f59e0b;         /* amber */
-            --bad: #ef4444;          /* red */
-        }
-
         * {
             box-sizing: border-box;
         }
 
         body {
+            font-family: DejaVu Sans, Arial, sans-serif;
             margin: 0;
-            background: #fff;
-            color: var(--ink);
-            font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, 'Noto Sans', 'Helvetica Neue', sans-serif;
-            font-size: 12px;
-            line-height: 1.35;
+            padding: 0;
+            color: #1f2937;
+            background: #f4f6f8;
+            font-size: 11px;
+            line-height: 1.4;
         }
 
         .page {
             width: 100%;
+            padding: 8px;
+            background: #f4f6f8;
         }
 
-        /* Header */
+        .report-container {
+            background: #ffffff;
+            border: 1px solid #d9e2ec;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
         .header {
+            background: linear-gradient(135deg, #1e40af, #2563eb);
+            color: #ffffff;
+            padding: 12px 16px 2px;
+        }
+
+        .header-top {
             display: table;
             width: 100%;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--line);
-            margin-bottom: 10px;
         }
 
-        .header-left {
-            display: table-cell;
-            vertical-align: top;
-            width: 68%;
-        }
-
+        .header-left,
         .header-right {
             display: table-cell;
             vertical-align: top;
-            width: 32%;
+        }
+
+        .header-right {
             text-align: right;
+            width: 260px;
         }
 
-        .title {
-            margin: 0;
-            font-size: 16px;
-            letter-spacing: 0.2px;
-            font-weight: 800;
+        .report-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0 0 4px;
+            letter-spacing: 0.3px;
         }
 
-        .meta {
-            margin-top: 2px;
-            color: var(--muted);
+        .report-subtitle {
             font-size: 11px;
-            white-space: nowrap;
+            opacity: 0.9;
+            margin: 0;
         }
 
-        .meta div {
-            margin-bottom: 2px;
-        }
-
-        .meta-institution {
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
             margin-top: 4px;
         }
 
-        .top-kpis {
-            margin-top: 8px;
+        .status-approved {
+            background: #d1fae5;
+            color: #065f46;
         }
 
-        .pill {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-weight: 700;
-            font-size: 11px;
-            border: 1px solid rgba(0, 0, 0, 0.06);
-            margin-right: 8px;
-            vertical-align: middle;
+        .status-conditional {
+            background: #fef3c7;
+            color: #92400e;
         }
 
-        .pill-approved {
-            background: #f0fdf4;
-            color: #166534;
-        }
-
-        .pill-conditional {
-            background: #fff7ed;
-            color: #9a3412;
-        }
-
-        .pill-rejected {
-            background: #fef2f2;
+        .status-rejected {
+            background: #fee2e2;
             color: #991b1b;
         }
 
-        .kpi {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 10px;
-            background: var(--card);
-            border: 1px solid var(--line);
-            vertical-align: middle;
-            min-width: 200px;
-        }
-
-        .kpi .label {
-            color: var(--muted);
-            font-size: 11px;
-            display: block;
-        }
-
-        .kpi .value {
-            font-size: 14px;
-            font-weight: 800;
-            color: var(--brand);
-            display: block;
-            margin-top: 2px;
-        }
-        
-        /* Breadcrumb */
-        .breadcrumb-path {
-            padding: 8px 0;
-            margin-bottom: 10px;
-            font-size: 11px;
-            color: var(--muted);
-            border-bottom: 1px solid var(--line);
-        }
-        
-        .breadcrumb-path span {
-            display: inline;
-        }
-        
-        .breadcrumb-path .separator {
-            margin: 0 6px;
-            opacity: 0.5;
-        }
-        
-        .breadcrumb-path .current {
-            font-weight: 600;
-            color: var(--ink);
-        }
-
-        /* Grid */
-        .grid-row {
+        .header-meta {
+            margin-top: 4px;
             display: table;
             width: 100%;
-            margin-bottom: 10px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            padding-top: 4px;
+            margin-bottom: 0;
         }
 
-        .grid-col {
+        .meta-item {
             display: table-cell;
-            width: 49%;
-            vertical-align: top;
-            padding-right: 1%;
+            width: 25%;
+            padding-right: 12px;
         }
 
-        .grid-col:last-child {
-            padding-right: 0;
-            padding-left: 1%;
+        .meta-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            opacity: 0.75;
+            margin-bottom: 2px;
         }
 
-        /* Sections */
+        .meta-value {
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .content {
+            padding: 2px 14px 14px;
+        }
+
         .section {
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 8px 10px;
-            background: #fff;
+            margin-bottom: 4px;
+        }
+
+        .section:first-child {
+            margin-top: 0;
         }
 
         .section-title {
-            margin: 0 0 6px 0;
             font-size: 12px;
-            font-weight: 800;
-            letter-spacing: 0.2px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #1e40af;
+            border-left: 3px solid #2563eb;
+            padding-left: 8px;
+            margin: 0 0 2px;
+            letter-spacing: 0.3px;
         }
 
-        .table {
+        .summary-box {
+            background: #f8fafc;
+            border: 1px solid #dbe7f0;
+            border-radius: 6px;
+            padding: 6px 8px;
+        }
+
+        .summary-box p {
+            margin: 0 0 2px;
+            line-height: 1.4;
+        }
+
+        .summary-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        .confidence-banner {
+            background: #eff6ff;
+            border: 1px solid #3b82f6;
+            padding: 3px 6px;
+            margin-bottom: 3px;
+            border-radius: 4px;
+            display: table;
+            width: 100%;
+        }
+
+        .confidence-left {
+            display: table-cell;
+            width: 70%;
+            vertical-align: middle;
+        }
+
+        .confidence-right {
+            display: table-cell;
+            text-align: right;
+            vertical-align: middle;
+        }
+
+        .confidence-badge {
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .drivers-grid,
+        .metrics-grid,
+        .two-col,
+        .four-col {
+            width: 100%;
+            display: table;
+            table-layout: fixed;
+            border-spacing: 0;
+        }
+
+        .driver-card,
+        .metric-card,
+        .col,
+        .mini-card {
+            display: table-cell;
+            vertical-align: top;
+        }
+
+        .driver-card {
+            width: 33.33%;
+            padding: 0 6px;
+        }
+
+        .driver-card-inner {
+            border: 1px solid #dbe7f0;
+            border-radius: 6px;
+            padding: 10px;
+            background: #fff;
+        }
+
+        .driver-positive {
+            border-top: 4px solid #10b981;
+        }
+
+        .driver-risk {
+            border-top: 4px solid #ef4444;
+        }
+
+        .driver-outcome {
+            border-top: 4px solid #f59e0b;
+        }
+
+        .driver-title {
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #0f172a;
+        }
+
+        .driver-list {
+            margin: 0;
+            padding-left: 14px;
+            font-size: 10px;
+        }
+
+        .driver-list li {
+            margin-bottom: 3px;
+            line-height: 1.4;
+        }
+
+        .metrics-grid {
+            margin-top: 3px;
+        }
+
+        .metric-card {
+            width: 20%;
+            padding: 0 6px;
+        }
+
+        .metric-card-inner {
+            background: #f8fafc;
+            border: 1px solid #dbe7f0;
+            border-radius: 6px;
+            padding: 6px 4px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 2px;
+            line-height: 1.2;
+        }
+
+        .metric-value {
+            font-size: 13px;
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        .metric-sub {
+            font-size: 9px;
+            color: #6b7280;
+            margin-top: 1px;
+        }
+
+        .col {
+            width: 50%;
+            padding: 0 8px;
+        }
+
+        .card {
+            border: 1px solid #dbe7f0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #ffffff;
+        }
+
+        .card-title {
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #1e40af;
+        }
+
+        .detail-table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        .table td {
-            padding: 4px 0;
+        .detail-table tr td {
+            padding: 3px 0;
+            border-bottom: 1px dashed #e5e7eb;
             vertical-align: top;
-            border-bottom: 1px solid #f1f5f9;
+            font-size: 10px;
         }
 
-        .table tr:last-child td {
+        .detail-table tr:last-child td {
             border-bottom: none;
         }
 
-        .table td:first-child {
-            width: 42%;
-            color: var(--muted);
-            padding-right: 8px;
+        .detail-label {
+            color: #64748b;
+            width: 56%;
         }
 
-        .table td:last-child {
-            font-weight: 600;
-            word-break: break-word;
+        .detail-value {
+            text-align: right;
+            font-weight: bold;
+            color: #111827;
         }
 
-        /* Risk section */
-        .risk-row {
-            margin-bottom: 8px;
+        .narrative {
+            margin-top: 4px;
+            color: #374151;
+            font-size: 9.5px;
+            line-height: 1.3;
         }
 
-        .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-weight: 800;
-            font-size: 11px;
-            border: 1px solid var(--line);
-            background: #fff;
+        .highlight-panel {
+            background: #f9fbfd;
+            border: 1px solid #dbe7f0;
+            border-radius: 6px;
+            padding: 8px;
         }
 
-        .badge-a {
-            background: #dcfce7;
-            border-color: #bbf7d0;
-            color: #166534;
-        }
-
-        .badge-b {
-            background: #d9f99d;
-            border-color: #bef264;
-            color: #365314;
-        }
-
-        .badge-c {
-            background: #fff7ed;
-            border-color: #fed7aa;
-            color: #9a3412;
-        }
-
-        .badge-d {
-            background: #fee2e2;
-            border-color: #fecaca;
-            color: #991b1b;
-        }
-
-        .score-container {
-            margin-top: 6px;
-        }
-
-        .score-top {
-            display: table;
+        .highlight-grid {
             width: 100%;
+            display: table;
+            table-layout: fixed;
+        }
+
+        .mini-card {
+            width: 25%;
+            padding: 0 6px;
+        }
+
+        .mini-card-inner {
+            border: 1px solid #dbe7f0;
+            border-radius: 6px;
+            background: #fff;
+            padding: 6px;
+            text-align: center;
+        }
+
+        .mini-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            color: #64748b;
             margin-bottom: 4px;
         }
 
-        .score-label {
-            display: table-cell;
-            font-size: 11px;
-            color: var(--muted);
+        .mini-value {
+            font-size: 12px;
+            font-weight: bold;
+            color: #111827;
         }
 
-        .score-value {
-            display: table-cell;
-            text-align: right;
-            font-size: 11px;
-            font-weight: 700;
+        .risk-box {
+            border: 1px solid #f1d5d5;
+            background: #fff7f7;
+            border-radius: 6px;
+            padding: 8px 10px;
         }
 
-        .bar {
-            position: relative;
-            height: 8px;
-            border-radius: 999px;
-            background: #eef2ff;
+        .risk-grade {
+            font-size: 16px;
+            font-weight: bold;
+            color: #991b1b;
+            margin-bottom: 2px;
+        }
+
+        .risk-score {
+            color: #7f1d1d;
+            font-size: 10px;
+            margin-bottom: 6px;
+        }
+
+        .conditions-box {
+            border: 1px solid #fde7c7;
+            background: #fffaf0;
+            border-radius: 6px;
+            padding: 8px 10px;
+        }
+
+        .conditions-box ol {
+            margin: 4px 0 0 16px;
+            padding: 0;
+            font-size: 10px;
+        }
+
+        .conditions-box li {
+            margin-bottom: 3px;
+            line-height: 1.3;
+        }
+
+        .recommendation-box {
+            border: 2px solid #2563eb;
+            border-radius: 6px;
             overflow: hidden;
-            border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
-        .bar-fill {
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            height: 100%;
+        .recommendation-head {
+            background: #2563eb;
+            color: white;
+            padding: 8px 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-size: 11px;
         }
 
-        .bar-fill-low {
-            background: linear-gradient(90deg, #16a34a, #22c55e);
+        .recommendation-body {
+            padding: 8px 10px;
+            background: #ffffff;
         }
 
-        .bar-fill-medium {
-            background: linear-gradient(90deg, #fbbf24, #fb923c);
+        .recommendation-status {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #0f172a;
         }
 
-        .bar-fill-high {
-            background: linear-gradient(90deg, #ef4444, #dc2626);
-        }
-
-        /* Conditions */
-        .conditions {
-            margin: 6px 0 0 0;
-            padding-left: 16px;
-        }
-
-        .conditions li {
-            margin: 2px 0;
-        }
-
-        /* Footer */
-        .footer {
-            margin-top: 10px;
-            padding-top: 8px;
-            border-top: 1px solid var(--line);
-            color: var(--muted);
-            font-size: 10.5px;
-        }
-
-        .footer-content {
-            display: table;
+        .recommendation-grid {
             width: 100%;
+            display: table;
+            table-layout: fixed;
+            margin-bottom: 8px;
         }
 
-        .footer-left {
-            display: table-cell;
+        .recommendation-grid .mini-card {
             width: 50%;
         }
 
-        .footer-right {
-            display: table-cell;
-            width: 50%;
-            text-align: right;
+        .disclaimer {
+            font-size: 9px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 6px;
+            margin-top: 6px;
+            line-height: 1.3;
         }
 
-        /* Print adjustments */
+        .footer {
+            padding: 6px 12px 8px;
+            font-size: 9px;
+            color: #6b7280;
+            text-align: center;
+        }
+
+        .text-success { color: #065f46; }
+        .text-warning { color: #92400e; }
+        .text-danger { color: #991b1b; }
+        .text-error { color: #dc2626; }
+
+        @page {
+            margin: 8mm 8mm;
+        }
+
         @media print {
-            body {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-
-            a {
-                color: inherit;
-                text-decoration: none;
-            }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            h2.section-title { page-break-after: avoid; }
+            .recommendation-box { page-break-before: always; page-break-inside: avoid; }
         }
     </style>
 </head>
-
 <body>
-    <div class="page">
-        <!-- Breadcrumb Navigation -->
-        <div class="breadcrumb-path">
-            <span>Prospects</span>
-            <span class="separator">›</span>
-            <span>{{ $prospect->first_name }} {{ $prospect->last_name }}</span>
-            <span class="separator">›</span>
-            <span class="current">Pre-Qualification Report</span>
-        </div>
-        
-        <!-- HEADER -->
-        <div class="header">
-            <div class="header-left">
-                <h1 class="title">PRE-QUALIFICATION REPORT</h1>
-                <div class="top-kpis">
-                    @php
-                        $statusClass = 'pill-conditional';
-                        $statusText = 'STATUS: CONDITIONALLY PRE-QUALIFIED';
-                        
-                        if ($assessment->system_decision === 'approved') {
-                            $statusClass = 'pill-approved';
-                            $statusText = 'STATUS: PRE-QUALIFIED';
-                        } elseif ($assessment->system_decision === 'rejected') {
-                            $statusClass = 'pill-rejected';
-                            $statusText = 'STATUS: NOT PRE-QUALIFIED';
-                        }
-                        
-                        $eligibleAmount = $assessment->final_max_loan 
-                            ? number_format($assessment->final_max_loan, 0) 
-                            : 'N/A';
-                    @endphp
-                    
-                    <span class="pill {{ $statusClass }}">{{ $statusText }}</span>
-                    
-                    <div class="kpi">
-                        <div class="label">Eligible Loan Limit</div>
-                        <div class="value">TZS {{ $eligibleAmount }}</div>
-                    </div>
-                </div>
-            </div>
+<div class="page">
+    <div class="report-container">
 
-            <div class="header-right">
-                <div class="meta">
-                    <div><b>Report ID:</b> #{{ str_pad($prospect->id, 3, '0', STR_PAD_LEFT) }}</div>
-                    <div><b>Generated:</b> {{ now()->format('d M Y') }}</div>
-                    @if($institution)
-                        <div class="meta-institution">{{ $institution->name }}</div>
-                    @else
-                        <div class="meta-institution">White-Label Platform Provider</div>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        <!-- GRID SECTIONS -->
-        <div class="grid-row">
-            <!-- Applicant Profile -->
-            <div class="grid-col">
-                <section class="section">
-                    <h2 class="section-title">Applicant Profile</h2>
-                    <table class="table">
-                        <tr>
-                            <td>Full Name</td>
-                            <td>{{ $prospect->first_name }} {{ $prospect->last_name }}</td>
-                        </tr>
-                        <tr>
-                            <td>Customer Type</td>
-                            <td>{{ $prospect->customer_type ? $prospect->customer_type->label() : 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td>ID Number</td>
-                            <td>{{ $prospect->id_number ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Phone</td>
-                            <td>{{ $prospect->phone ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Email</td>
-                            <td>{{ $prospect->email ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Date Applied</td>
-                            <td>{{ $prospect->created_at->format('d M Y') }}</td>
-                        </tr>
-                    </table>
-                </section>
-            </div>
-
-            <!-- Loan Request Overview -->
-            <div class="grid-col">
-                <section class="section">
-                    <h2 class="section-title">Loan Request Overview</h2>
-                    <table class="table">
-                        @php
-                            // Use prospect data, fallback to assessment if needed
-                            $requestedAmountProspect = $prospect->requested_amount > 0 
-                                ? $prospect->requested_amount 
-                                : ($assessment->requested_amount ?? 0);
-                            $tenureMonthsProspect = $prospect->requested_tenure > 0 
-                                ? $prospect->requested_tenure 
-                                : ($assessment->requested_tenure_months ?? 0);
-                            $propertyValueProspect = $prospect->property_value > 0 
-                                ? $prospect->property_value 
-                                : ($assessment->property_value ?? 0);
-                        @endphp
-                        <tr>
-                            <td>Requested Amount</td>
-                            <td>TZS {{ number_format($requestedAmountProspect, 0) }}</td>
-                        </tr>
-                        <tr>
-                            <td>Tenure</td>
-                            <td>{{ $tenureMonthsProspect }} months</td>
-                        </tr>
-                        <tr>
-                            <td>Property Value</td>
-                            <td>TZS {{ number_format($propertyValueProspect, 0) }}</td>
-                        </tr>
-                        @php
-                            $ltv = $propertyValueProspect > 0 
-                                ? ($requestedAmountProspect / $propertyValueProspect) * 100 
-                                : 0;
-                        @endphp
-                        <tr>
-                            <td>LTV Ratio</td>
-                            <td>{{ number_format($ltv, 1) }}%</td>
-                        </tr>
-                        <tr>
-                            <td>Loan Product</td>
-                            <td>{{ $product->name ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Property Location</td>
-                            <td>{{ $prospect->property_location ?? 'N/A' }}</td>
-                        </tr>
-                    </table>
-                </section>
-            </div>
-        </div>
-
-        <div class="grid-row">
-            <!-- Financial Assessment -->
-            <div class="grid-col">
-                <section class="section">
-                    <h2 class="section-title">Financial Assessment</h2>
-                    <table class="table">
-                        @php
-                            $analytics = $prospect->statementImport->analytics ?? null;
-                            // Use assessment data as primary source, analytics as fallback
-                            $income = $assessment->net_monthly_income ?? ($analytics->avg_monthly_income ?? 0);
-                            $debt = $assessment->total_monthly_debt ?? ($analytics->avg_monthly_debt_obligations ?? 0);
-                            $dti = $assessment->dti_ratio ?? 0;
-                            $dsr = $assessment->dsr_ratio ?? 0;
-                        @endphp
-                        <tr>
-                            <td>Avg. Monthly Income</td>
-                            <td>TZS {{ number_format($income, 0) }}</td>
-                        </tr>
-                        <tr>
-                            <td>Avg. Monthly Debt</td>
-                            <td>TZS {{ number_format($debt, 0) }}</td>
-                        </tr>
-                        <tr>
-                            <td>Debt-to-Income Ratio</td>
-                            <td>{{ number_format($dti, 1) }}%</td>
-                        </tr>
-                        <tr>
-                            <td>Debt Service Ratio</td>
-                            <td>{{ number_format($dsr, 1) }}%</td>
-                        </tr>
-                        @if($analytics && $analytics->cash_flow_volatility)
-                        <tr>
-                            <td>Cash Flow Volatility</td>
-                            <td>{{ number_format($analytics->cash_flow_volatility, 1) }}%</td>
-                        </tr>
-                        @endif
-                        @if($analytics && $analytics->avg_monthly_balance)
-                        <tr>
-                            <td>Avg. Monthly Balance</td>
-                            <td>TZS {{ number_format($analytics->avg_monthly_balance, 0) }}</td>
-                        </tr>
-                        @endif
-                    </table>
-                </section>
-            </div>
-
-            <!-- Risk & Conditions -->
-            <div class="grid-col">
-                <section class="section">
-                    <h2 class="section-title">Risk & Conditions</h2>
-                    
-                    @php
-                        $riskGrade = strtoupper($assessment->risk_grade ?? 'N');
-                        $riskScore = $assessment->risk_score ?? 0;
-                        $riskClass = 'badge-c';
-                        
-                        if ($riskGrade === 'A') $riskClass = 'badge-a';
-                        elseif ($riskGrade === 'B') $riskClass = 'badge-b';
-                        elseif ($riskGrade === 'C') $riskClass = 'badge-c';
-                        elseif ($riskGrade === 'D') $riskClass = 'badge-d';
-                        
-                        $barFillClass = 'bar-fill-medium';
-                        if ($riskScore >= 70) $barFillClass = 'bar-fill-low';
-                        elseif ($riskScore < 40) $barFillClass = 'bar-fill-high';
-                    @endphp
-
-                    <div class="risk-row">
-                        <span class="badge {{ $riskClass }}">RISK GRADE: {{ $riskGrade }}</span>
-                    </div>
-
-                    @if($riskScore > 0)
-                    <div class="score-container">
-                        <div class="score-top">
-                            <span class="score-label">Risk Score</span>
-                            <span class="score-value"><b>{{ number_format($riskScore, 0) }}</b>/100</span>
-                        </div>
-                        <div class="bar" aria-label="Risk score bar">
-                            <span class="bar-fill {{ $barFillClass }}" style="width: {{ $riskScore }}%;"></span>
-                        </div>
-                    </div>
-                    @endif
-
-                    @if($assessment->system_decision === 'conditionally_approved' && !empty($assessment->conditions))
-                        @php
-                            $conditions = is_array($assessment->conditions) 
-                                ? $assessment->conditions 
-                                : json_decode($assessment->conditions, true);
-                        @endphp
-                        @if(is_array($conditions) && count($conditions) > 0)
-                        <ul class="conditions">
-                            @foreach($conditions as $condition)
-                                @php
-                                    $conditionText = is_array($condition) ? ($condition['description'] ?? $condition['condition'] ?? implode(': ', $condition)) : $condition;
-                                @endphp
-                                <li>{{ $conditionText }}</li>
-                            @endforeach
-                        </ul>
-                        @endif
-                    @endif
-                </section>
-            </div>
-        </div>
-
-        <!-- Policy Breaches -->
         @php
-            $policyBreaches = is_array($assessment->policy_breaches) 
-                ? $assessment->policy_breaches 
-                : ($assessment->policy_breaches ? json_decode($assessment->policy_breaches, true) : []);
+            $decisionClass = 'status-conditional';
+            $decisionText = 'CONDITIONALLY PRE-QUALIFIED';
+            
+            if (strtolower($assessment->system_decision) === 'approved' || strtolower($assessment->system_decision) === 'eligible') {
+                $decisionClass = 'status-approved';
+                $decisionText = '✓ PRE-QUALIFIED FOR MORTGAGE';
+            } elseif (strtolower($assessment->system_decision) === 'rejected' || strtolower($assessment->system_decision) === 'not_recommended') {
+                $decisionClass = 'status-rejected';
+                $decisionText = '✗ NOT PRE-QUALIFIED';
+            }
+
+            // Calculate confidence score
+            $confidenceScore = 0;
+            $transactionCount = $data_quality['transaction_count'];
+            if ($transactionCount >= 2000) {
+                $confidenceScore += 30;
+            } elseif ($transactionCount >= 1000) {
+                $confidenceScore += 25;
+            } elseif ($transactionCount >= 500) {
+                $confidenceScore += 20;
+            } elseif ($transactionCount >= 200) {
+                $confidenceScore += 15;
+            } elseif ($transactionCount >= 100) {
+                $confidenceScore += 10;
+            } else {
+                $confidenceScore += 5;
+            }
+            
+            $monthsCount = $data_quality['months_count'];
+            if ($monthsCount >= 12) {
+                $confidenceScore += 25;
+            } elseif ($monthsCount >= 9) {
+                $confidenceScore += 20;
+            } elseif ($monthsCount >= 6) {
+                $confidenceScore += 15;
+            } elseif ($monthsCount >= 3) {
+                $confidenceScore += 10;
+            } else {
+                $confidenceScore += 5;
+            }
+            
+            $incomeStability = $analytics ? ($analytics->income_stability_score ?? 0) : 0;
+            if ($incomeStability >= 80) {
+                $confidenceScore += 25;
+            } elseif ($incomeStability >= 70) {
+                $confidenceScore += 20;
+            } elseif ($incomeStability >= 50) {
+                $confidenceScore += 15;
+            } elseif ($incomeStability >= 30) {
+                $confidenceScore += 10;
+            } else {
+                $confidenceScore += 5;
+            }
+            
+            $volatility = $analytics ? ($analytics->cash_flow_volatility_score ?? 100) : 100;
+            if ($volatility < 10) {
+                $confidenceScore += 20;
+            } elseif ($volatility < 20) {
+                $confidenceScore += 15;
+            } elseif ($volatility < 30) {
+                $confidenceScore += 12;
+            } elseif ($volatility < 40) {
+                $confidenceScore += 8;
+            } else {
+                $confidenceScore += 5;
+            }
+            
+            if ($confidenceScore >= 80) {
+                $confidenceLevel = 'High';
+                $confidenceLevelColor = '#047857';
+                $confidenceLevelBg = '#10b981';
+            } elseif ($confidenceScore >= 60) {
+                $confidenceLevel = 'Moderate';
+                $confidenceLevelColor = '#d97706';
+                $confidenceLevelBg = '#f59e0b';
+            } else {
+                $confidenceLevel = 'Low';
+                $confidenceLevelColor = '#dc2626';
+                $confidenceLevelBg = '#ef4444';
+            }
         @endphp
-        @if($policyBreaches && count($policyBreaches) > 0)
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Policy Breaches</h2>
-                <div style="background: #fef2f2; padding: 10px; border-left: 3px solid #ef4444;">
-                    <div style="font-weight: 700; color: #991b1b; margin-bottom: 6px; font-size: 11px;">⚠️ Policy Requirements Not Met:</div>
-                    <ul style="margin-left: 16px; color: #7f1d1d; font-size: 11px;">
-                        @foreach($policyBreaches as $breach)
-                        @php
-                            $breachText = is_array($breach) ? ($breach['description'] ?? $breach['breach'] ?? implode(': ', $breach)) : $breach;
-                        @endphp
-                        <li style="margin-bottom: 3px;">{{ $breachText }}</li>
-                        @endforeach
-                    </ul>
+
+        <div class="header">
+            <div class="header-top">
+                <div class="header-left">
+                    <h1 class="report-title">Mortgage Pre-Qualification Report</h1>
+                    <p class="report-subtitle">Automated Financial Assessment & Recommendation</p>
                 </div>
-            </section>
-        </div>
-        @endif
-
-        <!-- Risk Factors Breakdown -->
-        @if($assessment->risk_factors)
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Risk Factors Analysis</h2>
-                <table class="table">
-                    <thead style="background: #f1f5f9;">
-                        <tr>
-                            <th style="padding: 6px 10px; text-align: left; font-size: 10px;">Risk Factor</th>
-                            <th style="padding: 6px 10px; text-align: center; font-size: 10px;">Score</th>
-                            <th style="padding: 6px 10px; text-align: center; font-size: 10px;">Weight</th>
-                            <th style="padding: 6px 10px; text-align: center; font-size: 10px;">Impact</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @php
-                            $riskFactors = is_array($assessment->risk_factors) 
-                                ? $assessment->risk_factors 
-                                : ($assessment->risk_factors ? json_decode($assessment->risk_factors, true) : []);
-                        @endphp
-                        @foreach($riskFactors ?? [] as $riskItem)
-                        <tr>
-                            @php
-                                if (is_array($riskItem)) {
-                                    $factorName = $riskItem['factor'] ?? 'Unknown';
-                                    $factorValue = $riskItem['value'] ?? 0;
-                                    $factorWeight = $riskItem['weight'] ?? 0;
-                                } else {
-                                    $factorName = 'Unknown';
-                                    $factorValue = 0;
-                                    $factorWeight = 0;
-                                }
-                                $displayName = ucwords(str_replace('_', ' ', $factorName));
-                                $displayValue = is_numeric($factorValue) ? number_format($factorValue, 1) : $factorValue;
-                                
-                                $impactClass = 'badge-approved';
-                                $impactText = 'Low';
-                                if(is_numeric($factorValue) && $factorValue >= 70) {
-                                    $impactClass = 'badge-rejected';
-                                    $impactText = 'High';
-                                } elseif(is_numeric($factorValue) && $factorValue >= 40) {
-                                    $impactClass = 'badge-conditional';
-                                    $impactText = 'Medium';
-                                }
-                            @endphp
-                            <td style="padding: 6px 10px;">{{ $displayName }}</td>
-                            <td style="padding: 6px 10px; text-align: center;">{{ $displayValue }}</td>
-                            <td style="padding: 6px 10px; text-align: center;">{{ $factorWeight }}%</td>
-                            <td style="padding: 6px 10px; text-align: center;">
-                                <span class="pill {{ $impactClass }}" style="font-size: 9px; padding: 2px 8px;">{{ $impactText }}</span>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </section>
-        </div>
-        @endif
-
-        <!-- Risk Assessment Explanation -->
-        @if(isset($assessment->risk_explanation) && $assessment->risk_explanation)
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Risk Assessment Explanation</h2>
-                @php
-                    $riskExplanation = is_array($assessment->risk_explanation) 
-                        ? $assessment->risk_explanation 
-                        : json_decode($assessment->risk_explanation, true);
-                @endphp
-                
-                @if(isset($riskExplanation['primary_risk_drivers']) && count($riskExplanation['primary_risk_drivers']) > 0)
-                <div style="margin-bottom: 15px;">
-                    <div style="font-weight: 600; margin-bottom: 8px; color: #1e293b;">Primary Risk Drivers:</div>
-                    <ul style="margin: 0; padding-left: 20px; font-size: 11px;">
-                        @foreach($riskExplanation['primary_risk_drivers'] as $driver)
-                        <li style="margin-bottom: 5px;">
-                            {{ is_array($driver) ? $driver['factor'] : $driver }}
-                            @if(is_array($driver) && isset($driver['points']))
-                            <span style="background: #6c757d; color: white; padding: 2px 5px; border-radius: 3px; font-size: 9px; margin-left: 5px;">{{ $driver['points'] }} pts</span>
-                            @endif
-                        </li>
-                        @endforeach
-                    </ul>
-                </div>
-                @endif
-
-                @if(isset($riskExplanation['risk_grade_reasoning']))
-                <div style="margin-bottom: 15px; padding: 10px; background: #f8fafc; border-left: 3px solid #3b82f6;">
-                    <div style="font-weight: 600; margin-bottom: 5px; color: #1e293b;">Risk Grade Reasoning:</div>
-                    <p style="margin: 0; font-size: 11px;">{{ $riskExplanation['risk_grade_reasoning'] }}</p>
-                </div>
-                @endif
-
-                @if(isset($riskExplanation['loan_limit_determination']))
-                <div style="padding: 10px; background: #f8fafc; border-left: 3px solid #10b981;">
-                    <div style="font-weight: 600; margin-bottom: 5px; color: #1e293b;">Loan Limit Determination:</div>
-                    <p style="margin: 0; font-size: 11px;">{{ $riskExplanation['loan_limit_determination'] }}</p>
-                </div>
-                @endif
-            </section>
-        </div>
-        @endif
-
-        <!-- Transaction Anomaly Detection -->
-        @if(isset($analytics->pass_through_count) && $analytics->pass_through_count > 0)
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Transaction Anomaly Detection</h2>
-                <div style="padding: 12px; background: {{ $analytics->pass_through_risk_flag ? '#fee2e2' : '#fef3c7' }}; border-left: 4px solid {{ $analytics->pass_through_risk_flag ? '#dc2626' : '#f59e0b' }}; margin-bottom: 10px;">
-                    <div style="font-weight: 600; margin-bottom: 8px; color: {{ $analytics->pass_through_risk_flag ? '#991b1b' : '#92400e' }};">
-                        @if($analytics->pass_through_risk_flag)
-                        ⚠️ High Pass-Through Activity Detected
-                        @else
-                        ℹ️ Pass-Through Activity Detected
-                        @endif
+                <div class="header-right">
+                    <div class="status-badge {{ $decisionClass }}">
+                        {{ $decisionText }}
                     </div>
-                    <table class="table" style="font-size: 10px; margin-bottom: 10px;">
-                        <tr>
-                            <td style="font-weight: 600; width: 50%;">Pass-Through Transactions:</td>
-                            <td>{{ $analytics->pass_through_count }} instances</td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: 600;">Total Amount:</td>
-                            <td>TZS {{ number_format($analytics->pass_through_total_amount ?? 0, 0) }}</td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: 600;">Pass-Through Ratio:</td>
-                            <td>{{ number_format($analytics->pass_through_ratio ?? 0, 1) }}% of total credits</td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: 600;">Risk Status:</td>
-                            <td>
-                                <span class="pill {{ $analytics->pass_through_risk_flag ? 'badge-rejected' : 'badge-conditional' }}" style="font-size: 9px;">
-                                    {{ $analytics->pass_through_risk_flag ? 'High Risk' : 'Monitored' }}
-                                </span>
-                            </td>
-                        </tr>
-                    </table>
-                    <p style="margin: 0; font-size: 9px; color: #64748b;">
-                        <strong>Note:</strong> Pass-through transactions indicate "money in → money out" patterns within short time windows, 
-                        which may suggest suspicious cash-out behavior or money flow irregularities.
+                </div>
+            </div>
+
+            <div class="header-meta">
+                <div class="meta-item">
+                    <div class="meta-label">Applicant</div>
+                    <div class="meta-value">{{ $prospect->first_name }} {{ $prospect->last_name }}</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Report ID</div>
+                    <div class="meta-value">#{{ str_pad($prospect->id, 4, '0', STR_PAD_LEFT) }}</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Generated</div>
+                    <div class="meta-value">{{ now()->format('d M Y, H:i') }}</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Analysis Period</div>
+                    <div class="meta-value">{{ $monthsCount ?? 0 }} Months</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+
+            <!-- EXECUTIVE SUMMARY -->
+            <div class="section">
+                <h2 class="section-title">Executive Summary</h2>
+                
+                <!-- Decision Confidence -->
+                <div class="confidence-banner">
+                    <div class="confidence-left">
+                        <span style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.3px;">Decision Confidence:</span>
+                        <span style="font-size: 12px; font-weight: 600; color: {{ $confidenceLevelColor }}; margin-left: 5px;">{{ $confidenceScore }}%</span>
+                    </div>
+                    <div class="confidence-right">
+                        <div class="confidence-badge" style="background: {{ $confidenceLevelBg }};">
+                            {{ strtoupper($confidenceLevel) }} CONFIDENCE
+                        </div>
+                    </div>
+                </div>
+
+                <div class="summary-box">
+                    @php
+                        $maxInstallment = $assessment->max_installment_from_income ?? 0;
+                        $disposableIncome = $assessment->net_monthly_income - $assessment->total_monthly_debt;
+                    @endphp
+                    <p>
+                        This automated assessment analyzed <strong>{{ number_format($data_quality['transaction_count']) }} bank transactions</strong> over a <strong>{{ $data_quality['months_count'] }}-month period</strong> to evaluate the applicant's financial capacity for mortgage financing. The applicant demonstrates {{ $assessment->net_monthly_income > 5000000 ? 'strong' : 'moderate' }} repayment capacity, with an estimated average monthly income of <strong>TZS {{ number_format($assessment->net_monthly_income, 0) }}</strong> and disposable income of approximately <strong>TZS {{ number_format($disposableIncome, 0) }}</strong> after accounting for living expenses and existing obligations.
+                    </p>
+                    @if($analytics && $analytics->income_stability_score < 50)
+                    <p>
+                        However, the analysis identified {{ $analytics->cash_flow_volatility_score > 30 ? 'high income volatility' : 'moderate income fluctuation' }} and {{ $analytics->income_stability_score < 30 ? 'low' : 'moderate' }} income consistency, indicating that income deposits do not follow a stable monthly pattern. While the applicant shows adequate financial capacity to support mortgage repayments, the irregular income pattern introduces additional lending risk.
+                    </p>
+                    @endif
+                    <p>
+                        Based on the available financial data, the system <strong>{{ strtolower($decisionText) }}</strong> the applicant for a mortgage loan of up to <strong>TZS {{ number_format($assessment->final_max_loan ?? 0, 0) }}</strong>, with an estimated monthly installment of approximately <strong>TZS {{ number_format($maxInstallment, 0) }}</strong>{{ isset($conditions) && count($conditions) > 0 ? ', subject to verification of income stability and additional underwriting review' : '' }}.
                     </p>
                 </div>
-            </section>
-        </div>
-        @endif
+            </div>
 
-        <!-- Final Recommendation -->
-        @if(isset($assessment->final_recommendation) && $assessment->final_recommendation)
-        @php
-            $finalRec = is_array($assessment->final_recommendation) 
-                ? $assessment->final_recommendation 
-                : json_decode($assessment->final_recommendation, true);
-        @endphp
-        <div style="margin-bottom: 10px;">
-            <section class="section" style="border: 2px solid #2563eb; padding: 12px; background: #eff6ff;">
-                <h2 class="section-title" style="color: #2563eb; font-size: 12px;">
-                    Final Recommendation & Key Ratios
-                </h2>
-                
-                <!-- System Decision -->
-                <div style="
-                    padding: 10px; 
-                    margin-bottom: 10px; 
-                    background: {{ $finalRec['system_decision'] === 'Eligible' ? '#d1f4dd' : ($finalRec['system_decision'] === 'Conditional' ? '#fef3c7' : '#fee2e2') }}; 
-                    border-left: 3px solid {{ $finalRec['system_decision'] === 'Eligible' ? '#10b981' : ($finalRec['system_decision'] === 'Conditional' ? '#f59e0b' : '#ef4444') }};
-                ">
-                    <div style="font-size: 11px; font-weight: 700; margin-bottom: 5px;">
-                        Decision: {{ $finalRec['system_decision'] }}
-                        <span class="pill" style="
-                            float: right;
-                            background: {{ $finalRec['confidence_level'] === 'High' ? '#10b981' : ($finalRec['confidence_level'] === 'Medium' ? '#f59e0b' : '#6b7280') }};
-                            color: white;
-                            font-size: 8px;
-                            padding: 2px 6px;
-                        ">
-                            {{ $finalRec['confidence_level'] }} Confidence
-                        </span>
-                    </div>
-                    <div style="font-size: 9px; margin-bottom: 3px;">
-                        <strong>Recommended Amount:</strong> TZS {{ number_format($finalRec['recommended_loan_amount'] ?? 0, 0) }}
-                    </div>
-                    <div style="font-size: 9px;">
-                        <strong>Risk Grade:</strong> 
-                        <span class="pill" style="
-                            background: {{ $finalRec['risk_grade'] === 'A' ? '#10b981' : ($finalRec['risk_grade'] === 'B' ? '#06b6d4' : ($finalRec['risk_grade'] === 'C' ? '#f59e0b' : ($finalRec['risk_grade'] === 'D' ? '#f97316' : '#ef4444'))) }};
-                            color: {{ in_array($finalRec['risk_grade'], ['C', 'D']) ? '#000' : '#fff' }};
-                            font-size: 8px;
-                            padding: 2px 5px;
-                        ">
-                            {{ $finalRec['risk_grade'] }}
-                        </span>
-                        ({{ round($finalRec['risk_score'] ?? 0) }} pts)
-                    </div>
-                </div>
+            <!-- KEY DECISION DRIVERS -->
+            <div class="section">
+                <h2 class="section-title">Key Decision Drivers</h2>
+                <div class="drivers-grid">
+                    @php
+                        // Build positive factors
+                        $positiveFactors = [];
+                        
+                        if ($assessment->net_monthly_income >= 3000000) {
+                            $positiveFactors[] = 'Average monthly income of <strong>TZS ' . number_format($assessment->net_monthly_income, 0) . '</strong>';
+                        }
+                        
+                        $disposableIncome = $assessment->net_monthly_income - ($assessment->net_monthly_income * 0.35) - $assessment->total_monthly_debt;
+                        if ($disposableIncome >= 1000000) {
+                            $positiveFactors[] = 'Disposable income of <strong>TZS ' . number_format($disposableIncome, 0) . '</strong>';
+                        }
+                        
+                        if ($assessment->dti_ratio < 40) {
+                            $positiveFactors[] = 'Debt-to-Income ratio of <strong>' . number_format($assessment->dti_ratio, 1) . '%</strong>';
+                        }
+                        
+                        if ($analytics && $analytics->negative_balance_days <= 5) {
+                            $positiveFactors[] = 'Minimal negative balance days: <strong>' . $analytics->negative_balance_days . '</strong>';
+                        }
+                        
+                        if ($analytics && $analytics->income_stability_score >= 50) {
+                            $positiveFactors[] = 'Income stability score of <strong>' . $analytics->income_stability_score . '/100</strong>';
+                        }
+                        
+                        if ($assessment->dsr_ratio < 50) {
+                            $positiveFactors[] = 'Debt Service Ratio of <strong>' . number_format($assessment->dsr_ratio, 1) . '%</strong>';
+                        }
+                        
+                        if (empty($positiveFactors)) {
+                            $positiveFactors[] = 'Financial profile reviewed for mortgage eligibility';
+                        }
 
-                <!-- Key Ratios -->
-                <div style="margin-bottom: 10px;">
-                    <div style="font-weight: 700; font-size: 10px; margin-bottom: 6px;">Key Ratios Analysis</div>
-                    <table class="table" style="font-size: 9px;">
-                        @foreach($finalRec['key_ratios'] ?? [] as $key => $ratio)
-                        <tr>
-                            <td style="font-weight: 600; width: 40%;">{{ $ratio['label'] }}</td>
-                            <td style="
-                                width: 30%; 
-                                font-weight: 700;
-                                color: {{ $ratio['status'] === 'good' ? '#10b981' : ($ratio['status'] === 'acceptable' ? '#f59e0b' : ($ratio['status'] === 'poor' ? '#ef4444' : '#000')) }};
-                            ">
-                                {{ $ratio['value'] !== null ? number_format($ratio['value'], 1) . '%' : 'N/A' }}
-                            </td>
-                            <td style="width: 30%;">
-                                <span class="pill" style="
-                                    background: {{ $ratio['status'] === 'good' ? '#10b981' : ($ratio['status'] === 'acceptable' ? '#f59e0b' : ($ratio['status'] === 'poor' ? '#ef4444' : '#6b7280')) }};
-                                    color: {{ $ratio['status'] === 'acceptable' ? '#000' : '#fff' }};
-                                    font-size: 8px;
-                                    padding: 2px 5px;
-                                ">
-                                    {{ ucfirst($ratio['status']) }}
-                                </span>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </table>
-                </div>
+                        // Build risk factors
+                        $riskFactors = [];
+                        
+                        if ($analytics && $analytics->cash_flow_volatility_score > 30) {
+                            $riskFactors[] = 'Income volatility of <strong>' . number_format($analytics->cash_flow_volatility_score, 1) . '%</strong>';
+                        }
+                        
+                        if ($analytics && $analytics->income_stability_score < 50) {
+                            $riskFactors[] = 'Income consistency score of <strong>' . $analytics->income_stability_score . '/100</strong>';
+                        }
+                        
+                        if ($assessment->dti_ratio >= 40) {
+                            $riskFactors[] = 'High DTI ratio of <strong>' . number_format($assessment->dti_ratio, 1) . '%</strong>';
+                        }
+                        
+                        if ($analytics && $analytics->negative_balance_days > 5) {
+                            $riskFactors[] = 'Negative balance days: <strong>' . $analytics->negative_balance_days . '</strong>';
+                        }
+                        
+                        if ($analytics && $analytics->bounce_count > 0) {
+                            $riskFactors[] = 'Payment bounces detected: <strong>' . $analytics->bounce_count . '</strong>';
+                        }
+                        
+                        if ($data_quality['months_count'] < 6) {
+                            $riskFactors[] = 'Limited analysis period: <strong>' . $data_quality['months_count'] . ' months</strong>';
+                        }
+                        
+                        if (empty($riskFactors)) {
+                            $riskFactors[] = 'No significant risk factors identified';
+                        }
 
-                <!-- Summary -->
-                <div style="background: #e0e7ff; padding: 8px; border-radius: 3px; margin-bottom: 10px; font-size: 9px;">
-                    <div style="font-weight: 700; margin-bottom: 3px;">Summary:</div>
-                    <div>{{ $finalRec['summary_reasoning'] }}</div>
-                </div>
+                        // Decision outcome
+                        $outcomeText = '';
+                        $outcomeColor = '#1e40af';
+                        $outcomeBg = '#eff6ff';
+                        
+                        if (strtolower($assessment->system_decision) === 'approved' || strtolower($assessment->system_decision) === 'eligible') {
+                            if (count($riskFactors) <= 1 || (count($positiveFactors) >= count($riskFactors) + 2)) {
+                                $outcomeText = 'The applicant is PRE-QUALIFIED for mortgage financing. The positive factors significantly outweigh the identified risks, and the applicant demonstrates strong financial capacity to support the requested loan amount with comfortable repayment margins.';
+                                $outcomeColor = '#047857';
+                                $outcomeBg = '#d1fae5';
+                            }
+                        } elseif (strtolower($assessment->system_decision) === 'conditional') {
+                            if (isset($conditions) && count($conditions) > 0) {
+                                $outcomeText = 'The applicant is CONDITIONALLY PRE-QUALIFIED subject to addressing specific requirements. While the financial capacity is adequate, certain risk factors require mitigation through additional verification, documentation, or loan structure adjustments before final approval.';
+                                $outcomeColor = '#d97706';
+                                $outcomeBg = '#fef3c7';
+                            }
+                        } elseif (strtolower($assessment->system_decision) === 'rejected' || strtolower($assessment->system_decision) === 'not_recommended') {
+                            if (count($riskFactors) > count($positiveFactors) || $assessment->dti_ratio > 50) {
+                                $outcomeText = 'The applicant is NOT PRE-QUALIFIED at this time. The identified risk factors significantly outweigh the positive factors, and the current financial profile does not meet minimum lending standards. The applicant should address the concerns and reapply after financial improvements.';
+                                $outcomeColor = '#dc2626';
+                                $outcomeBg = '#fee2e2';
+                            }
+                        }
+                        
+                        if (empty($outcomeText)) {
+                            $outcomeText = 'Assessment completed. Review detailed factors above for comprehensive understanding of the decision rationale.';
+                        }
+                    @endphp
 
-                <!-- Factors -->
-                @if((isset($finalRec['supporting_factors']) && count($finalRec['supporting_factors']) > 0) || (isset($finalRec['risk_factors']) && count($finalRec['risk_factors']) > 0))
-                <table class="table" style="font-size: 9px; margin-bottom: 10px;">
-                    @if(isset($finalRec['supporting_factors']) && count($finalRec['supporting_factors']) > 0)
-                    <tr>
-                        <td style="vertical-align: top; width: 50%; padding-right: 5px;">
-                            <div style="font-weight: 700; color: #10b981; margin-bottom: 4px;">✓ Supporting Factors</div>
-                            <ul style="margin: 0; padding-left: 15px; color: #10b981;">
-                                @foreach($finalRec['supporting_factors'] as $factor)
-                                <li style="margin-bottom: 2px;">{{ $factor }}</li>
+                    <div class="driver-card">
+                        <div class="driver-card-inner driver-positive">
+                            <div class="driver-title">Positive Factors</div>
+                            <ul class="driver-list">
+                                @foreach($positiveFactors as $factor)
+                                    <li>{!! $factor !!}</li>
                                 @endforeach
                             </ul>
-                        </td>
-                        @if(isset($finalRec['risk_factors']) && count($finalRec['risk_factors']) > 0)
-                        <td style="vertical-align: top; width: 50%; padding-left: 5px;">
-                            <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">⚠ Risk Factors</div>
-                            <ul style="margin: 0; padding-left: 15px; color: #ef4444;">
-                                @foreach($finalRec['risk_factors'] as $factor)
-                                <li style="margin-bottom: 2px;">{{ $factor }}</li>
+                        </div>
+                    </div>
+                    <div class="driver-card">
+                        <div class="driver-card-inner driver-risk">
+                            <div class="driver-title">Risk Factors</div>
+                            <ul class="driver-list">
+                                @foreach($riskFactors as $risk)
+                                    <li>{!! $risk !!}</li>
                                 @endforeach
                             </ul>
-                        </td>
-                        @endif
-                    </tr>
-                    @elseif(isset($finalRec['risk_factors']) && count($finalRec['risk_factors']) > 0)
-                    <tr>
-                        <td>
-                            <div style="font-weight: 700; color: #ef4444; margin-bottom: 4px;">⚠ Risk Factors</div>
-                            <ul style="margin: 0; padding-left: 15px; color: #ef4444;">
-                                @foreach($finalRec['risk_factors'] as $factor)
-                                <li style="margin-bottom: 2px;">{{ $factor }}</li>
-                                @endforeach
-                            </ul>
-                        </td>
-                    </tr>
-                    @endif
-                </table>
-                @endif
-
-                <!-- Action -->
-                <div style="background: #dbeafe; border-left: 3px solid #2563eb; padding: 8px; font-size: 9px;">
-                    <strong>Recommended Action:</strong> {{ $finalRec['recommended_action'] }}
+                        </div>
+                    </div>
+                    <div class="driver-card">
+                        <div class="driver-card-inner driver-outcome">
+                            <div class="driver-title">Decision Outcome</div>
+                            <p style="margin: 0; font-size: 11px; line-height: 1.6; color: {{ $outcomeColor }};">
+                                {{ $outcomeText }}
+                            </p>
+                        </div>
+                    </div>
                 </div>
-            </section>
-        </div>
-        @endif
+            </div>
 
-        <!-- Income & Affordability Breakdown -->
-        @if($assessment->gross_monthly_income || $assessment->max_loan_from_affordability)
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Income & Affordability Analysis</h2>
-                <table class="table">
-                    @if($assessment->gross_monthly_income)
-                    <tr>
-                        <td style="font-weight: 600;">Gross Monthly Income</td>
-                        <td>TZS {{ number_format($assessment->gross_monthly_income, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($assessment->net_monthly_income)
-                    <tr>
-                        <td style="font-weight: 600;">Net Monthly Income</td>
-                        <td>TZS {{ number_format($assessment->net_monthly_income, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($assessment->total_monthly_debt)
-                    <tr>
-                        <td style="font-weight: 600;">Total Monthly Debt</td>
-                        <td>TZS {{ number_format($assessment->total_monthly_debt, 0) }} ({{ $assessment->detected_debt_count ?? 0 }} obligations)</td>
-                    </tr>
-                    @endif
-                    @if($assessment->net_disposable_income)
-                    <tr>
-                        <td style="font-weight: 600;">Disposable Income</td>
-                        <td>TZS {{ number_format($assessment->net_disposable_income, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($assessment->max_installment_from_income)
-                    <tr style="background: #f0f9ff;">
-                        <td style="font-weight: 700;">Max Affordable Installment</td>
-                        <td style="font-weight: 700;">TZS {{ number_format($assessment->max_installment_from_income, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($assessment->max_loan_from_affordability)
-                    <tr style="background: #f0f9ff;">
-                        <td style="font-weight: 700;">Max Affordable Loan Amount</td>
-                        <td style="font-weight: 700;">TZS {{ number_format($assessment->max_loan_from_affordability, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($assessment->max_loan_from_ltv)
-                    <tr>
-                        <td style="font-weight: 600;">Max Loan from LTV</td>
-                        <td>TZS {{ number_format($assessment->max_loan_from_ltv, 0) }} ({{ number_format($assessment->ltv_ratio, 1) }}% LTV)</td>
-                    </tr>
-                    @endif
-                    @if($assessment->final_max_loan)
-                    <tr style="background: #dbeafe;">
-                        <td style="font-weight: 700; color: #1e40af;">Final Maximum Loan</td>
-                        <td style="font-weight: 700; color: #1e40af;">TZS {{ number_format($assessment->final_max_loan, 0) }}</td>
-                    </tr>
-                    @endif
-                </table>
-            </section>
-        </div>
-        @endif
+            <!-- DATA QUALITY -->
+            <div class="section">
+                <h2 class="section-title">Data Quality Status</h2>
+                <div class="highlight-panel">
+                    <div class="highlight-grid">
+                        <div class="mini-card">
+                            <div class="mini-card-inner">
+                                <div class="mini-label">Quality Status</div>
+                                <div class="mini-value">
+                                    @if($data_quality['is_sufficient'])
+                                        <span style="color: #047857;">Excellent</span>
+                                    @elseif($data_quality['transaction_count'] >= 100)
+                                        <span style="color: #d97706;">Adequate</span>
+                                    @else
+                                        <span style="color: #dc2626;">Limited</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mini-card">
+                            <div class="mini-card-inner">
+                                <div class="mini-label">Transactions</div>
+                                <div class="mini-value">{{ number_format($data_quality['transaction_count']) }}</div>
+                            </div>
+                        </div>
+                        <div class="mini-card">
+                            <div class="mini-card-inner">
+                                <div class="mini-label">Credits / Debits</div>
+                                <div class="mini-value" style="font-size: 13px;">
+                                    {{ number_format($analytics ? $analytics->total_credit_count : 0) }}
+                                    /
+                                    {{ number_format($analytics ? $analytics->total_debit_count : 0) }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mini-card">
+                            <div class="mini-card-inner">
+                                <div class="mini-label">Coverage</div>
+                                <div class="mini-value">{{ $data_quality['months_count'] }} Months</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        <!-- Financial Details (if available) -->
-        @php
-            $analytics = $prospect->statementImport->analytics ?? null;
-        @endphp
-        @if($analytics && ($analytics->total_deposits > 0 || $analytics->total_withdrawals > 0))
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Bank Statement Analysis</h2>
-                <table class="table">
-                    @if($analytics->statement_start_date && $analytics->statement_end_date)
-                    <tr>
-                        <td>Statement Period</td>
-                        <td colspan="3">{{ $analytics->statement_start_date->format('d M Y') }} - {{ $analytics->statement_end_date->format('d M Y') }} ({{ $analytics->statement_months ?? 'N/A' }} months)</td>
-                    </tr>
-                    @endif
-                    <tr>
-                        <td>Total Deposits</td>
-                        <td>TZS {{ number_format($analytics->total_deposits, 0) }}</td>
-                        <td>Total Withdrawals</td>
-                        <td>TZS {{ number_format($analytics->total_withdrawals, 0) }}</td>
-                    </tr>
-                    <tr>
-                        <td>Deposit Count</td>
-                        <td>{{ number_format($analytics->deposit_count, 0) }}</td>
-                        <td>Withdrawal Count</td>
-                        <td>{{ number_format($analytics->withdrawal_count, 0) }}</td>
-                    </tr>
-                    @if($analytics->average_monthly_income)
-                    <tr>
-                        <td>Avg Monthly Income</td>
-                        <td>TZS {{ number_format($analytics->average_monthly_income, 0) }}</td>
-                        <td>Avg Monthly Expenses</td>
-                        <td>TZS {{ number_format($analytics->average_monthly_expense ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->opening_balance)
-                    <tr>
-                        <td>Opening Balance</td>
-                        <td>TZS {{ number_format($analytics->opening_balance, 0) }}</td>
-                        <td>Closing Balance</td>
-                        <td>TZS {{ number_format($analytics->closing_balance ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->average_balance)
-                    <tr>
-                        <td>Average Balance</td>
-                        <td>TZS {{ number_format($analytics->average_balance, 0) }}</td>
-                        <td>Minimum Balance</td>
-                        <td>TZS {{ number_format($analytics->minimum_balance ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->income_volatility_percentage)
-                    <tr>
-                        <td>Income Volatility</td>
-                        <td>{{ number_format($analytics->income_volatility_percentage, 1) }}%</td>
-                        <td>Cash Flow Volatility</td>
-                        <td>{{ number_format($analytics->cash_flow_volatility ?? 0, 1) }}%</td>
-                    </tr>
-                    @endif
-                    @if($analytics->bounce_count || $analytics->account_bounce_count)
-                    <tr>
-                        <td>Bounce Count</td>
-                        <td>{{ $analytics->bounce_count ?? $analytics->account_bounce_count ?? 0 }}</td>
-                        <td>NSF Count</td>
-                        <td>{{ $analytics->nsf_count ?? 0 }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->gambling_transaction_count && $analytics->gambling_transaction_count > 0)
-                    <tr style="background: #fef2f2;">
-                        <td style="color: #991b1b; font-weight: 600;">Gambling Transactions</td>
-                        <td style="color: #991b1b;">{{ $analytics->gambling_transaction_count }}</td>
-                        <td style="color: #991b1b; font-weight: 600;">Gambling Amount</td>
-                        <td style="color: #991b1b;">TZS {{ number_format($analytics->gambling_amount ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->loan_repayment_count)
-                    <tr>
-                        <td>Loan Repayments Detected</td>
-                        <td>{{ $analytics->loan_repayment_count }}</td>
-                        <td>Total Loan Payments</td>
-                        <td>TZS {{ number_format($analytics->total_loan_repayments ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->salary_income_count)
-                    <tr>
-                        <td>Salary Payments</td>
-                        <td>{{ $analytics->salary_income_count }}</td>
-                        <td>Business Income Entries</td>
-                        <td>{{ $analytics->business_income_count ?? 0 }}</td>
-                    </tr>
-                    @endif
-                </table>
-            </section>
-        </div>
-        @endif
-
-        <!-- Transaction Summary (NEW) -->
-        @if($analytics)
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Transaction Summary</h2>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Transaction Type</th>
-                            <th style="text-align: center;">Count</th>
-                            <th style="text-align: right;">Total Amount</th>
-                            <th style="text-align: right;">Average Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>Credits (Inflows)</strong></td>
-                            <td style="text-align: center;">{{ number_format($analytics->total_credit_count ?? 0) }}</td>
-                            <td style="text-align: right; color: #059669;">TZS {{ number_format($analytics->total_credits ?? 0, 0) }}</td>
-                            <td style="text-align: right;">TZS {{ number_format($analytics->avg_credit_amount ?? 0, 0) }}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Debits (Outflows)</strong></td>
-                            <td style="text-align: center;">{{ number_format($analytics->total_debit_count ?? 0) }}</td>
-                            <td style="text-align: right; color: #dc2626;">TZS {{ number_format($analytics->total_debits ?? 0, 0) }}</td>
-                            <td style="text-align: right;">TZS {{ number_format($analytics->avg_debit_amount ?? 0, 0) }}</td>
-                        </tr>
-                        <tr style="background: #f9fafb; font-weight: 600;">
-                            <td><strong>Net Position</strong></td>
-                            <td style="text-align: center;">-</td>
-                            <td style="text-align: right;">
+            <!-- KEY FINANCIAL INDICATORS -->
+            <div class="section">
+                <h2 class="section-title">Key Financial Indicators</h2>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-card-inner">
+                            <div class="metric-label">Avg Monthly Income</div>
+                            <div class="metric-value" style="font-size: 13px;">TZS {{ number_format($assessment->net_monthly_income ?? 0) }}</div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-inner">
+                            <div class="metric-label">Disposable Income</div>
+                            <div class="metric-value" style="font-size: 13px;">TZS {{ number_format($disposableIncome ?? 0) }}</div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-inner">
+                            <div class="metric-label">DTI Ratio</div>
+                            <div class="metric-value">{{ number_format($assessment->dti_ratio ?? 0, 1) }}%</div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-inner">
+                            <div class="metric-label">Income Volatility</div>
+                            <div class="metric-value">{{ number_format($analytics ? $analytics->cash_flow_volatility_score : 0, 1) }}%</div>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-card-inner">
+                            <div class="metric-label">Risk Grade</div>
+                            <div class="metric-value">
                                 @php
-                                    $netPosition = ($analytics->total_credits ?? 0) - ($analytics->total_debits ?? 0);
+                                    $riskScore = $assessment->risk_score ?? 0;
+                                    $riskGrade = 'C';
+                                    if ($riskScore >= 80) $riskGrade = 'A';
+                                    elseif ($riskScore >= 65) $riskGrade = 'B';
+                                    elseif ($riskScore < 50) $riskGrade = 'D';
                                 @endphp
-                                <strong style="color: {{ $netPosition >= 0 ? '#059669' : '#dc2626' }}">
-                                    TZS {{ number_format($netPosition, 0) }}
-                                </strong>
-                            </td>
-                            <td style="text-align: right;">-</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </section>
-        </div>
-        @endif
+                                {{ $riskGrade }}
+                            </div>
+                            <div class="metric-sub">Score: {{ $riskScore }}/100</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        <!-- Loan & Repayment Detection (NEW) -->
-        @if($analytics && ($analytics->detected_loan_count > 0 || $analytics->loan_stacking_detected))
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Loan & Repayment Detection</h2>
-                
-                <table class="table">
-                    <tr>
-                        <td style="width: 30%;"><strong>Detected Loans</strong></td>
-                        <td>
-                            {{ $analytics->detected_loan_count ?? 0 }} loan(s)
-                            @if($analytics->loan_stacking_detected)
-                                <span style="color: #dc2626; font-weight: 600; margin-left: 8px;">⚠️ LOAN STACKING DETECTED</span>
-                            @endif
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><strong>Total Monthly Repayment</strong></td>
-                        <td style="color: #dc2626; font-weight: 600;">TZS {{ number_format($analytics->detected_monthly_loan_repayment ?? 0, 0) }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Detection Confidence</strong></td>
-                        <td>
-                            @php
-                                $confidence = $analytics->loan_detection_confidence ?? 'none';
-                                $confidenceColors = ['high' => '#059669', 'medium' => '#f59e0b', 'low' => '#6b7280', 'none' => '#9ca3af'];
-                            @endphp
-                            <span style="color: {{ $confidenceColors[$confidence] ?? '#6b7280' }}; font-weight: 600;">
-                                {{ strtoupper($confidence) }}
-                            </span>
-                        </td>
-                    </tr>
-                    @if($analytics->loan_inflows > 0)
-                    <tr>
-                        <td><strong>Loan Disbursements Received</strong></td>
-                        <td style="color: #f59e0b; font-weight: 600;">TZS {{ number_format($analytics->loan_inflows ?? 0, 0) }}</td>
-                    </tr>
+            <!-- APPLICANT + INCOME -->
+            <div class="section">
+                <div class="two-col">
+                    <div class="col">
+                        <div class="card">
+                            <div class="card-title">Applicant Summary</div>
+                            <table class="detail-table">
+                                <tr>
+                                    <td class="detail-label">Full Name</td>
+                                    <td class="detail-value">{{ $prospect->first_name }} {{ $prospect->last_name }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Customer Type</td>
+                                    <td class="detail-value">{{ $prospect->customer_type ? ucfirst($prospect->customer_type->value) : 'Individual' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Phone / Email</td>
+                                    <td class="detail-value">
+                                        {{ $prospect->phone ?? 'N/A' }}<br>
+                                        <span style="font-weight: normal; font-size: 10px;">{{ $prospect->email ?? '' }}</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Bank Statement Source</td>
+                                    <td class="detail-value">{{ $prospect->statementImport?->bank_name ?? 'Not Identified' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Analysis Period</td>
+                                    <td class="detail-value">
+                                        {{ $analytics ? $narrativeService->formatTenure($analytics->analysis_months) : 'N/A' }}
+                                    </td>
+                                </tr>
+                            </table>
+                            <div class="narrative">
+                                The system reviewed the applicant's transaction history to assess income reliability,
+                                affordability, debt exposure, and financial behavior relevant to mortgage eligibility.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card">
+                            <div class="card-title">Income Analysis</div>
+                            <table class="detail-table">
+                                <tr>
+                                    <td class="detail-label">Average Monthly Income</td>
+                                    <td class="detail-value">TZS {{ number_format($assessment->net_monthly_income ?? 0) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Consistency Score</td>
+                                    <td class="detail-value">{{ $analytics ? $analytics->income_stability_score : 0 }}/100</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Income Volatility</td>
+                                    <td class="detail-value">{{ number_format($analytics ? $analytics->cash_flow_volatility_score : 0, 1) }}%</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Primary Income Source</td>
+                                    <td class="detail-value">{{ $analytics && $analytics->income_classification ? ucfirst(str_replace('_', ' ', $analytics->income_classification->value)) : 'Mixed Sources' }}</td>
+                                </tr>
+                            </table>
+                            <div class="narrative">
+                                {{ $narrativeService->explainIncomeVolatility($analytics ? $analytics->cash_flow_volatility_score : 0) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AFFORDABILITY + LOAN CAPACITY -->
+            <div class="section">
+                <div class="two-col">
+                    <div class="col">
+                        <div class="card">
+                            <div class="card-title">Affordability Analysis</div>
+                            <table class="detail-table">
+                                @php
+                                    $avgIncome = $assessment->net_monthly_income ?? 0;
+                                    $estimatedExpenses = $avgIncome * 0.35;
+                                    $existingDebt = $assessment->total_monthly_debt ?? 0;
+                                    $disposableIncome = $avgIncome - $estimatedExpenses - $existingDebt;
+                                @endphp
+                                <tr>
+                                    <td class="detail-label">Average Monthly Income</td>
+                                    <td class="detail-value">TZS {{ number_format($avgIncome) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Estimated Living Expenses</td>
+                                    <td class="detail-value">TZS {{ number_format($estimatedExpenses) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Existing Debt Obligations</td>
+                                    <td class="detail-value">TZS {{ number_format($existingDebt) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Disposable Income</td>
+                                    <td class="detail-value">TZS {{ number_format($disposableIncome) }}</td>
+                                </tr>
+                            </table>
+                            <div class="narrative">
+                                {{ $narrativeService->explainAffordability($avgIncome, $estimatedExpenses, $disposableIncome) }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card">
+                            <div class="card-title">Loan Capacity & Debt Ratios</div>
+                            <table class="detail-table">
+                                @php
+                                    $maxInstallment = $assessment->max_installment_from_income ?? 0;
+                                    $hasCalculationError = $maxInstallment <= 0 && ($assessment->final_max_loan ?? 0) > 0;
+                                @endphp
+                                <tr>
+                                    <td class="detail-label">Debt-to-Income Ratio (DTI)</td>
+                                    <td class="detail-value">{{ number_format($assessment->dti_ratio ?? 0, 1) }}%</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Debt Service Ratio (DSR)</td>
+                                    <td class="detail-value">{{ number_format($assessment->dsr_ratio ?? 0, 1) }}%</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Recommended Installment</td>
+                                    <td class="detail-value" style="{{ $hasCalculationError ? 'color: #dc2626;' : '' }}">
+                                        @if($hasCalculationError)
+                                            NOT AVAILABLE
+                                        @else
+                                            TZS {{ number_format($maxInstallment) }}
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Maximum Loan Amount</td>
+                                    <td class="detail-value">
+                                        TZS {{ number_format($assessment->final_max_loan ?? 0) }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Loan Tenure</td>
+                                    <td class="detail-value">{{ $narrativeService->formatTenure($assessment->loan_tenure_months ?? 240) }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Interest Rate</td>
+                                    <td class="detail-value">{{ number_format($assessment->assumed_interest_rate ?? 18, 2) }}% p.a.</td>
+                                </tr>
+                            </table>
+                            <div class="narrative">
+                                {{ $narrativeService->explainLoanCapacity($maxInstallment, $assessment->final_max_loan ?? 0, $assessment->loan_tenure_months ?? 240, $assessment->assumed_interest_rate ?? 18) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INCOME SOURCE COMPOSITION -->
+            @if($analytics && ($analytics->salary_income > 0 || $analytics->business_income > 0 || $analytics->bulk_deposits > 0))
+            <div class="section">
+                <h2 class="section-title">Income Source Composition</h2>
+                <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
+                    @if($analytics->salary_income > 0)
+                    <div class="metric-card">
+                        <div class="metric-card-inner" style="border-color: #10b981;">
+                            <div class="metric-label">Salary Income</div>
+                            <div class="metric-value" style="font-size: 11px; color: #059669;">TZS {{ number_format($analytics->salary_income ?? 0) }}</div>
+                        </div>
+                    </div>
                     @endif
-                </table>
+                    @if($analytics->business_income > 0)
+                    <div class="metric-card">
+                        <div class="metric-card-inner" style="border-color: #06b6d4;">
+                            <div class="metric-label">Business Income</div>
+                            <div class="metric-value" style="font-size: 11px; color: #0891b2;">TZS {{ number_format($analytics->business_income ?? 0) }}</div>
+                        </div>
+                    </div>
+                    @endif
+                    @if($analytics->transfer_inflows > 0)
+                    <div class="metric-card">
+                        <div class="metric-card-inner">
+                            <div class="metric-label">Transfer Inflows</div>
+                            <div class="metric-value" style="font-size: 11px;">TZS {{ number_format($analytics->transfer_inflows ?? 0) }}</div>
+                        </div>
+                    </div>
+                    @endif
+                    @if($analytics->loan_inflows > 0)
+                    <div class="metric-card">
+                        <div class="metric-card-inner" style="border-color: #f59e0b;">
+                            <div class="metric-label">Loan Inflows</div>
+                            <div class="metric-value" style="font-size: 11px; color: #f59e0b;">TZS {{ number_format($analytics->loan_inflows ?? 0) }}</div>
+                        </div>
+                    </div>
+                    @endif
+                    @if($analytics->bulk_deposits > 0)
+                    <div class="metric-card">
+                        <div class="metric-card-inner" style="border-color: #8b5cf6;">
+                            <div class="metric-label">Bulk Deposits</div>
+                            <div class="metric-value" style="font-size: 11px; color: #8b5cf6;">TZS {{ number_format($analytics->bulk_deposits ?? 0) }}</div>
+                        </div>
+                    </div>
+                    @endif
+                    @if($analytics->other_income > 0)
+                    <div class="metric-card">
+                        <div class="metric-card-inner">
+                            <div class="metric-label">Other Income</div>
+                            <div class="metric-value" style="font-size: 11px;">TZS {{ number_format($analytics->other_income ?? 0) }}</div>
+                        </div>
+                    </div>
+                    @endif
+                </div>
 
-                @if($analytics->detected_loans && is_array($analytics->detected_loans) && count($analytics->detected_loans) > 0)
-                <div style="margin-top: 10px;">
-                    <div style="font-weight: 600; margin-bottom: 6px; font-size: 10px; color: #374151;">Detected Loan Details:</div>
-                    <table class="table">
+                @if($analytics->suspicious_deposits_flagged && $analytics->bulk_deposit_details && count($analytics->bulk_deposit_details) > 0)
+                <div class="card" style="border: 2px solid #dc2626; background: #fef2f2; margin-top: 8px;">
+                    <div class="card-title" style="color: #991b1b; display: flex; align-items: center;">
+                        <span style="margin-right: 4px; font-size: 11px;">⚠️</span>
+                        Suspicious Deposits Detected
+                        <span style="margin-left: 6px; background: #dc2626; color: white; padding: 1px 4px; border-radius: 3px; font-size: 8px;">
+                            {{ $analytics->bulk_deposit_count ?? 0 }} Found
+                        </span>
+                    </div>
+                    <div style="font-size: 8px; color: #7f1d1d; margin-bottom: 4px; line-height: 1.3;">
+                        Large unexplained deposits require manual verification. Review transaction details below:
+                    </div>
+                    <table class="detail-table" style="margin-top: 4px;">
                         <thead>
-                            <tr>
-                                <th>Lender</th>
-                                <th>Description</th>
-                                <th style="text-align: center;">Occurrences</th>
-                                <th style="text-align: right;">Monthly Amount</th>
-                                <th style="text-align: center;">Confidence</th>
+                            <tr style="background: #fee2e2; border-bottom: 2px solid #dc2626;">
+                                <td style="padding: 3px 4px; font-weight: 600; color: #991b1b; font-size: 8px;">Date</td>
+                                <td style="padding: 3px 4px; text-align: right; font-weight: 600; color: #991b1b; font-size: 8px;">Amount</td>
+                                <td style="padding: 3px 4px; font-weight: 600; color: #991b1b; font-size: 8px;">Description</td>
+                                <td style="padding: 3px 4px; font-weight: 600; color: #991b1b; font-size: 8px;">Source</td>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($analytics->detected_loans as $loan)
-                            <tr>
-                                <td><strong>{{ $loan['lender_name'] ?? 'Unknown' }}</strong></td>
-                                <td style="font-size: 9px;">{{ \Illuminate\Support\Str::limit($loan['description'] ?? 'N/A', 35) }}</td>
-                                <td style="text-align: center;">{{ $loan['occurrences'] ?? 0 }}</td>
-                                <td style="text-align: right;">TZS {{ number_format($loan['monthly_amount'] ?? 0, 0) }}</td>
-                                <td style="text-align: center;">
-                                    @php
-                                        $loanConfidence = $loan['confidence'] ?? 'low';
-                                        $confidenceColor = $loanConfidence === 'high' ? '#059669' : ($loanConfidence === 'medium' ? '#f59e0b' : '#6b7280');
-                                    @endphp
-                                    <span style="color: {{ $confidenceColor }}; font-weight: 600; font-size: 9px;">
-                                        {{ strtoupper($loanConfidence) }}
-                                    </span>
-                                </td>
-                            </tr>
+                            @foreach($analytics->bulk_deposit_details as $deposit)
+                                @if($deposit['suspicious'] ?? false)
+                                <tr>
+                                    <td style="padding: 3px 4px; font-size: 8px; color: #7f1d1d;">{{ $deposit['date'] ?? 'N/A' }}</td>
+                                    <td style="padding: 3px 4px; text-align: right; font-size: 8px; color: #7f1d1d; font-weight: 600;">
+                                        {{ number_format($deposit['amount'] ?? 0, 0) }}
+                                    </td>
+                                    <td style="padding: 3px 4px; font-size: 7.5px; color: #7f1d1d;">
+                                        {{ Str::limit($deposit['description'] ?? 'No description', 35) }}
+                                    </td>
+                                    <td style="padding: 3px 4px; font-size: 8px; color: #7f1d1d;">
+                                        <span style="background: #fecaca; padding: 1px 4px; border-radius: 2px; font-size: 7px;">
+                                            {{ ucfirst($deposit['source'] ?? 'Unknown') }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                @endif
                             @endforeach
                         </tbody>
                     </table>
-                    
-                    @if($analytics->loan_stacking_detected)
-                    <div style="background: #fef2f2; padding: 10px; border-left: 3px solid #dc2626; margin-top: 10px;">
-                        <div style="font-weight: 600; color: #991b1b; font-size: 10px; margin-bottom: 4px;">⚠️ LOAN STACKING ALERT</div>
-                        <div style="font-size: 9px; color: #7f1d1d;">
-                            Multiple active loans detected ({{ $analytics->detected_loan_count }} loans). This significantly increases credit risk and may affect debt-to-income ratio calculations.
+                    <div class="narrative" style="margin-top: 4px; color: #7f1d1d; font-style: italic;">
+                        Note: Verify these transactions with supporting documentation before final approval decision.
+                    </div>
+                </div>
+                @endif
+            </div>
+            @endif
+
+            <!-- BEHAVIOR + RISK -->
+            <div class="section">
+                <div class="two-col">
+                    <div class="col">
+                        <div class="card">
+                            <div class="card-title">Behavioral Financial Analysis</div>
+                            <table class="detail-table">
+                                <tr>
+                                    <td class="detail-label">Average Account Balance</td>
+                                    <td class="detail-value">
+                                        TZS {{ number_format($analytics ? (($analytics->opening_balance + $analytics->closing_balance) / 2) : 0) }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Negative Balance Days</td>
+                                    <td class="detail-value">{{ $analytics ? $analytics->negative_balance_days : 0 }} days</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Payment Bounces</td>
+                                    <td class="detail-value">{{ $analytics ? $analytics->bounce_count : 0 }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="detail-label">Gambling Transactions</td>
+                                    <td class="detail-value">{{ $analytics ? $analytics->gambling_transaction_count : 0 }}</td>
+                                </tr>
+                            </table>
+                            <div class="narrative">
+                                @if($analytics)
+                                    {{ $narrativeService->explainBehavioralPatterns($analytics) }}
+                                @else
+                                    The account reflects generally stable day-to-day balance management with no frequent negative balance events detected during the analysis period.
+                                @endif
+                            </div>
                         </div>
                     </div>
-                    @endif
-                </div>
-                @endif
-            </section>
-        </div>
-        @endif
-
-        <!-- Income Source Composition (NEW) -->
-        @if($analytics && ($analytics->salary_income > 0 || $analytics->business_income > 0))
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Income Source Composition</h2>
-                
-                <table class="table">
-                    @if($analytics->salary_income > 0)
-                    <tr>
-                        <td style="width: 30%;"><strong>Salary Income</strong></td>
-                        <td style="color: #059669; font-weight: 600;">TZS {{ number_format($analytics->salary_income ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->business_income > 0)
-                    <tr>
-                        <td><strong>Business Income</strong></td>
-                        <td style="color: #0891b2; font-weight: 600;">TZS {{ number_format($analytics->business_income ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->transfer_inflows > 0)
-                    <tr>
-                        <td><strong>Transfer Inflows</strong></td>
-                        <td>TZS {{ number_format($analytics->transfer_inflows ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->loan_inflows > 0)
-                    <tr>
-                        <td><strong>Loan Inflows</strong></td>
-                        <td style="color: #f59e0b; font-weight: 600;">TZS {{ number_format($analytics->loan_inflows ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->bulk_deposits > 0)
-                    <tr>
-                        <td><strong>Bulk Deposits</strong></td>
-                        <td style="color: #8b5cf6; font-weight: 600;">TZS {{ number_format($analytics->bulk_deposits ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                    @if($analytics->other_income > 0)
-                    <tr>
-                        <td><strong>Other Income</strong></td>
-                        <td>TZS {{ number_format($analytics->other_income ?? 0, 0) }}</td>
-                    </tr>
-                    @endif
-                </table>
-
-                @if($analytics->suspicious_deposits_flagged)
-                <div style="background: #fef2f2; padding: 10px; border-left: 3px solid #dc2626; margin-top: 10px;">
-                    <div style="font-weight: 600; color: #991b1b; font-size: 10px; margin-bottom: 4px;">⚠️ SUSPICIOUS DEPOSITS FLAGGED</div>
-                    <div style="font-size: 9px; color: #7f1d1d;">
-                        Large unexplained deposits detected. {{ $analytics->bulk_deposit_count ?? 0 }} bulk deposit(s) identified with unknown source.
-                    </div>
-                </div>
-                @endif
-            </section>
-        </div>
-        @endif
-
-        <!-- Behavioral Analysis (NEW) -->
-        @if($analytics && $analytics->behavioral_risk_level)
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Behavioral Analysis</h2>
-                
-                <table class="table">
-                    <tr>
-                        <td style="width: 30%;"><strong>Transaction Pattern</strong></td>
-                        <td>{{ ucfirst($analytics->transaction_pattern ?? 'Unknown') }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Behavioral Risk Level</strong></td>
-                        <td>
-                            @php
-                                $behavioralRisk = $analytics->behavioral_risk_level ?? 'low';
-                                $riskColors = ['high' => '#dc2626', 'medium' => '#f59e0b', 'low' => '#059669'];
-                            @endphp
-                            <span style="color: {{ $riskColors[$behavioralRisk] ?? '#6b7280' }}; font-weight: 600;">
-                                {{ strtoupper($behavioralRisk) }}
-                            </span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><strong>Transaction Frequency</strong></td>
-                        <td>{{ number_format($analytics->transaction_frequency_score ?? 0, 1) }}/100</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Cash Withdrawal Ratio</strong></td>
-                        <td>{{ number_format($analytics->cash_withdrawal_ratio ?? 0, 1) }}%</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Income Volatility</strong></td>
-                        <td>{{ number_format($analytics->income_volatility_coefficient ?? 0, 1) }}%</td>
-                    </tr>
-                </table>
-
-                @if($analytics->behavioral_flags && is_array($analytics->behavioral_flags) && count($analytics->behavioral_flags) > 0)
-                <div style="margin-top: 10px;">
-                    <div style="font-weight: 600; margin-bottom: 6px; font-size: 10px; color: #374151;">Behavioral Flags:</div>
-                    <ul style="margin: 0; padding-left: 20px; font-size: 9px;">
-                        @foreach($analytics->behavioral_flags as $flag)
-                            <li style="margin-bottom: 4px; color: {{ ($flag['severity'] ?? 'low') === 'high' ? '#dc2626' : '#f59e0b' }}">
-                                <strong>{{ ucwords(str_replace('_', ' ', $flag['flag'] ?? 'Unknown')) }}</strong>
-                                @if(isset($flag['value']))
-                                    - {{ $flag['value'] }}
+                    <div class="col">
+                        <div class="risk-box">
+                            <div class="card-title" style="margin-bottom: 6px; color: #991b1b;">Risk Assessment</div>
+                            <div class="risk-grade">Grade {{ $riskGrade }}</div>
+                            <div class="risk-score">Risk Score: {{ $riskScore }}/100</div>
+                            <ul class="driver-list" style="margin-top: 0;">
+                                @if($analytics && $analytics->cash_flow_volatility_score > 30)
+                                    <li>High income fluctuation increases repayment uncertainty.</li>
                                 @endif
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-                @endif
-            </section>
-        </div>
-        @endif
-
-        <!-- Recommendations & Next Steps -->
-        <div style="margin-bottom: 10px;">
-            <section class="section">
-                <h2 class="section-title">Recommendations & Next Steps</h2>
-                <div style="background: #f0f9ff; padding: 12px; border-left: 3px solid var(--brand);">
-                    @php
-                        $systemDecision = $assessment->system_decision ?? 'pending';
-                        $isRecommendable = $assessment->is_recommendable ?? false;
-                        $hasConditions = isset($conditions) && is_array($conditions) && count($conditions) > 0;
-                        $hasBreaches = isset($policyBreaches) && is_array($policyBreaches) && count($policyBreaches) > 0;
-                    @endphp
-                    
-                    <div style="font-weight: 700; color: #1e40af; margin-bottom: 8px; font-size: 12px;">Recommended Actions:</div>
-                    
-                    <ul style="margin-left: 16px; color: #1e3a8a; line-height: 1.5; font-size: 11px;">
-                        @if($systemDecision === 'approved' || $systemDecision === 'eligible')
-                            @if($hasConditions)
-                                <li><strong>PRE-QUALIFIED (CONDITIONAL):</strong> Customer meets eligibility criteria subject to conditions listed above.</li>
-                                <li>Proceed to full loan application with required documentation.</li>
-                                <li>Verify all conditions before final approval.</li>
-                            @else
-                                <li><strong>PRE-QUALIFIED:</strong> Customer meets all basic eligibility requirements.</li>
-                                <li>Invite customer to submit complete loan application.</li>
-                                <li>Provide list of required documentation (ID, proof of income, property documents).</li>
-                            @endif
-                            <li>Schedule property valuation and inspection.</li>
-                            <li>Conduct full credit bureau check during formal application.</li>
-                        @elseif($systemDecision === 'conditionally_approved' || $systemDecision === 'conditional')
-                            <li><strong>CONDITIONAL PRE-QUALIFICATION:</strong> Review conditions and policy breaches carefully.</li>
-                            @if($hasBreaches)
-                                <li>Policy breaches identified - may require senior review or policy exception.</li>
-                                <li>Consider loan restructuring: adjust amount to {{ isset($assessment->final_max_loan) ? 'TZS ' . number_format($assessment->final_max_loan, 0) : 'recommended level' }} or extend tenure.</li>
-                            @endif
-                            <li>Request additional supporting documents from customer.</li>
-                            <li>Discuss alternative loan structures that may better fit customer profile.</li>
-                        @elseif($systemDecision === 'rejected' || $systemDecision === 'declined' || $systemDecision === 'outside_policy')
-                            <li><strong>NOT PRE-QUALIFIED:</strong> {{ $assessment->decision_reason ?? 'Does not meet minimum eligibility requirements.' }}</li>
-                            @php
-                                $compareRequestedAmount = $prospect->requested_amount > 0 ? $prospect->requested_amount : ($assessment->requested_amount ?? 0);
-                            @endphp
-                            @if(isset($assessment->final_max_loan) && $assessment->final_max_loan > 0 && $assessment->final_max_loan < $compareRequestedAmount)
-                                <li>Customer may qualify for reduced loan of TZS {{ number_format($assessment->final_max_loan, 0) }}. Discuss counter-offer.</li>
-                            @endif
-                            <li>Provide clear feedback on reasons for decline.</li>
-                            <li>Suggest steps to improve eligibility (e.g., reduce debt, increase down payment, extend tenure).</li>
-                            <li>Consider alternative financing options or products better suited to customer profile.</li>
-                        @else
-                            <li>Complete full application review including document verification.</li>
-                            <li>Request official bank statements and income verification.</li>
-                            <li>Conduct property valuation and legal verification.</li>
-                        @endif
-                        
-                        @php
-                            $compareTenure = $prospect->requested_tenure > 0 ? $prospect->requested_tenure : ($assessment->requested_tenure_months ?? 0);
-                        @endphp
-                        @if($assessment->optimal_tenure_months && $assessment->optimal_tenure_months != $compareTenure)
-                            <li><strong>Optimization:</strong> Consider extending tenure to {{ $assessment->optimal_tenure_months }} months for improved affordability.</li>
-                        @endif
-                        
-                        @php
-                            $analytics = $prospect->statementImport->analytics ?? null;
-                        @endphp
-                        @if($analytics && isset($analytics->gambling_transaction_count) && $analytics->gambling_transaction_count > 0)
-                            <li><strong>Note:</strong> {{ $analytics->gambling_transaction_count }} gambling transactions detected. Assess customer's financial discipline during full application.</li>
-                        @endif
-                        
-                        @if($analytics && isset($analytics->bounce_count) && $analytics->bounce_count > 0)
-                            <li><strong>Note:</strong> {{ $analytics->bounce_count }} bounced transactions detected. Review during formal underwriting.</li>
-                        @endif
-                        
-                        @if($systemDecision === 'approved' || $systemDecision === 'conditionally_approved')
-                            <li><strong>Next Step:</strong> This pre-qualification is valid for 30 days. Customer should submit full application within this period.</li>
-                        @endif
-                    </ul>
-                    
-                    <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #bfdbfe; font-size: 10px; color: #64748b;">
-                        <strong>Important:</strong> This is a preliminary automated assessment. Final loan approval requires complete application, document verification, property valuation, and compliance with all regulatory requirements.
+                                @if($analytics && $analytics->income_stability_score < 50)
+                                    <li>Low income consistency suggests irregular monthly inflows.</li>
+                                @endif
+                                @if($assessment->dti_ratio > 40)
+                                    <li>Elevated debt-to-income ratio reduces repayment buffer.</li>
+                                @endif
+                                @if($analytics && $analytics->negative_balance_days > 5)
+                                    <li>Multiple negative balance events detected during analysis.</li>
+                                @endif
+                                @if(count($riskFactors) <= 1)
+                                    <li>Financial profile demonstrates acceptable risk levels for mortgage lending.</li>
+                                @endif
+                            </ul>
+                            <div class="narrative" style="color: #7f1d1d;">
+                                These risks do not necessarily disqualify the application, but they justify additional checks,
+                                documentation, or compensating factors before final approval.
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </section>
-        </div>
+            </div>
 
-        <!-- FOOTER -->
-        <div class="footer">
-            <div class="footer-content">
-                <div class="footer-left">
-                    This automated pre-qualification report is valid for 30 days.
+            <!-- LTV -->
+            @if($prospect->property_value && $prospect->requested_amount)
+                <div class="section">
+                    <h2 class="section-title">Loan-to-Value Analysis</h2>
+                    <div class="highlight-panel">
+                        @php
+                            $ltvRatio = ($prospect->requested_amount / $prospect->property_value) * 100;
+                            $downPayment = $prospect->property_value - $prospect->requested_amount;
+                        @endphp
+                        <div class="highlight-grid">
+                            <div class="mini-card">
+                                <div class="mini-card-inner">
+                                    <div class="mini-label">Property Value</div>
+                                    <div class="mini-value" style="font-size: 13px;">TZS {{ number_format($prospect->property_value) }}</div>
+                                </div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-card-inner">
+                                    <div class="mini-label">Loan Requested</div>
+                                    <div class="mini-value" style="font-size: 13px;">TZS {{ number_format($prospect->requested_amount) }}</div>
+                                </div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-card-inner">
+                                    <div class="mini-label">Down Payment</div>
+                                    <div class="mini-value" style="font-size: 13px;">TZS {{ number_format($downPayment) }}</div>
+                                </div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-card-inner">
+                                    <div class="mini-label">LTV Ratio</div>
+                                    <div class="mini-value">{{ number_format($ltvRatio, 1) }}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="narrative" style="margin-top: 6px;">
+                            {{ $narrativeService->explainLTV($ltvRatio, $prospect->requested_amount, $prospect->property_value) }}
+                        </div>
+                    </div>
                 </div>
-                <div class="footer-right">
-                    Final approval subject to full application review and verification.
+            @endif
+
+            <!-- CONDITIONS -->
+            @php
+                $conditions = is_array($assessment->conditions) 
+                    ? $assessment->conditions 
+                    : (is_string($assessment->conditions) ? json_decode($assessment->conditions, true) : []);
+                $conditions = is_array($conditions) ? $conditions : [];
+            @endphp
+
+            @if(!empty($conditions) && count($conditions) > 0)
+                <div class="section">
+                    <h2 class="section-title">Conditions for Approval</h2>
+                    <div class="conditions-box">
+                        <div style="font-weight: bold; margin-bottom: 6px;">The following conditions should be satisfied before full mortgage approval:</div>
+                        <ol>
+                            @foreach($conditions as $index => $condition)
+                                @php
+                                    // Extract condition text from array or string
+                                    $rawCondition = is_array($condition) 
+                                        ? ($condition['label'] ?? $condition['condition'] ?? $condition['text'] ?? 'Unspecified condition') 
+                                        : $condition;
+                                    
+                                    // Humanize condition label
+                                    $conditionText = $narrativeService->humanizeCondition($rawCondition);
+                                @endphp
+                                <li>{{ $conditionText }}</li>
+                            @endforeach
+                        </ol>
+                    </div>
+                </div>
+            @endif
+
+            <!-- FINAL RECOMMENDATION -->
+            <div class="section">
+                <div class="recommendation-box">
+                    <div class="recommendation-head">Final System Recommendation</div>
+                    <div class="recommendation-body">
+                        @php
+                            $maxInstallment = $assessment->max_installment_from_income ?? 0;
+                            $hasCalculationError = $maxInstallment <= 0 && ($assessment->final_max_loan ?? 0) > 0;
+                        @endphp
+                        <div class="recommendation-status">
+                            Result: {{ $decisionText }}
+                        </div>
+
+                        <div class="recommendation-grid">
+                            <div class="mini-card">
+                                <div class="mini-card-inner">
+                                    <div class="mini-label">Recommended Loan Amount</div>
+                                    <div class="mini-value" style="font-size: 13px;">
+                                        TZS {{ number_format($assessment->final_max_loan ?? 0) }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mini-card">
+                                <div class="mini-card-inner">
+                                    <div class="mini-label">Estimated Monthly Installment</div>
+                                    <div class="mini-value" style="font-size: 13px; {{ $hasCalculationError ? 'color: #dc2626;' : '' }}">
+                                        @if($hasCalculationError)
+                                            NOT AVAILABLE
+                                        @else
+                                            TZS {{ number_format($maxInstallment) }}
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="narrative">
+                            {{ $narrativeService->explainFinalRecommendation(
+                                $assessment->system_decision,
+                                $assessment->final_max_loan ?? 0,
+                                $maxInstallment,
+                                $riskGrade,
+                                $conditions
+                            ) }}
+                        </div>
+
+                        <div class="disclaimer">
+                            <strong>Important Disclaimer:</strong>
+                            This pre-qualification result is indicative and based solely on automated analysis of bank transaction data.
+                            It does not constitute a binding loan offer or guarantee of mortgage approval. Final approval remains subject to
+                            income verification, property valuation, legal review, KYC checks, credit policy compliance, and full underwriting assessment.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <div class="footer">
+            Report generated by {{ config('app.name', 'Mortgage Intelligence Platform') }}
+            | {{ now()->format('d M Y, H:i:s') }}
+            <br>
+            This is a system-generated document and does not require a signature.
+        </div>
     </div>
+</div>
 </body>
 </html>

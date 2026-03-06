@@ -457,13 +457,65 @@
                             </div>
 
                             <!-- Suspicious Deposits Alert -->
-                            <div v-if="analytics.suspicious_deposits_flagged" class="alert alert-warning mt-3">
-                                <i class="bi bi-exclamation-diamond me-2"></i>
-                                <strong>SUSPICIOUS DEPOSITS FLAGGED</strong>
-                                <p class="mb-0 small">
-                                    {{ analytics.bulk_deposit_count || 0 }} large unexplained deposit(s) detected. 
-                                    Manual verification recommended.
-                                </p>
+                            <div v-if="analytics.suspicious_deposits_flagged && analytics.bulk_deposit_details && analytics.bulk_deposit_details.length > 0" class="card border-danger mt-3">
+                                <div class="card-header bg-danger bg-opacity-10 border-danger">
+                                    <h6 class="mb-0 text-danger">
+                                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                        <strong>Suspicious Deposits Detected</strong>
+                                        <span class="badge bg-danger ms-2">{{ analytics.bulk_deposit_count || 0 }} Found</span>
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-danger mb-3">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Large unexplained deposits require manual verification. Review transaction details below:
+                                    </p>
+                                    
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover">
+                                            <thead class="table-danger">
+                                                <tr>
+                                                    <th style="font-size: 0.85rem;">Date</th>
+                                                    <th style="font-size: 0.85rem;" class="text-end">Amount (TZS)</th>
+                                                    <th style="font-size: 0.85rem;">Description</th>
+                                                    <th style="font-size: 0.85rem;">Source</th>
+                                                    <th style="font-size: 0.85rem;">Reason</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="(deposit, index) in analytics.bulk_deposit_details.filter(d => d.suspicious)" :key="index">
+                                                    <td style="font-size: 0.85rem;">{{ deposit.date || 'N/A' }}</td>
+                                                    <td style="font-size: 0.85rem;" class="text-end fw-bold">{{ Number(deposit.amount || 0).toLocaleString() }}</td>
+                                                    <td style="font-size: 0.85rem;">
+                                                        <span class="text-truncate d-inline-block" style="max-width: 250px;" :title="deposit.description">
+                                                            {{ deposit.description || 'No description' }}
+                                                        </span>
+                                                    </td>
+                                                    <td style="font-size: 0.85rem;">
+                                                        <span class="badge" :class="{
+                                                            'bg-warning': deposit.source === 'loan',
+                                                            'bg-success': deposit.source === 'salary',
+                                                            'bg-info': deposit.source === 'transfer',
+                                                            'bg-secondary': deposit.source === 'unknown'
+                                                        }">
+                                                            {{ (deposit.source || 'unknown').toString().toUpperCase() }}
+                                                        </span>
+                                                    </td>
+                                                    <td style="font-size: 0.8rem;" class="fst-italic text-danger">
+                                                        {{ deposit.reason || 'Large unexplained deposit' }}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <div class="alert alert-warning mb-0 mt-2">
+                                        <small>
+                                            <i class="bi bi-shield-exclamation me-1"></i>
+                                            <strong>Action Required:</strong> Verify these transactions with supporting documentation (bank statements, invoices, contracts) before final approval decision.
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -731,6 +783,9 @@
                             </button>
                             <button class="btn btn-outline-info" @click="downloadReport">
                                 <i class="bi bi-download me-2"></i>Download Report
+                            </button>
+                            <button class="btn btn-outline-success" @click="downloadMonthlySummary">
+                                <i class="bi bi-file-earmark-excel me-2"></i>Monthly Summary
                             </button>
                         </div>
                     </div>
@@ -1403,6 +1458,10 @@ const confirmConversion = () => {
 
 const downloadReport = () => {
     window.location.href = `/pre-qualify/${props.prospect.id}/report`;
+};
+
+const downloadMonthlySummary = () => {
+    window.location.href = `/pre-qualify/${props.prospect.id}/export/monthly-summary`;
 };
 
 const rerunCheck = () => {

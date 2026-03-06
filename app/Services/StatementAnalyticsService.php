@@ -152,7 +152,7 @@ class StatementAnalyticsService
 
         // Detect salary patterns (regular monthly credits of similar amounts)
         $monthlySalaries = [];
-        $salaryKeywords = ['salary', 'wage', 'payroll', 'employer', 'tra', 'nssf'];
+        $salaryKeywords = ['salary', 'wage', 'payroll'];
 
         foreach ($incomeTransactions as $transaction) {
             foreach ($salaryKeywords as $keyword) {
@@ -620,7 +620,7 @@ class StatementAnalyticsService
         $otherIncome = 0;
 
         // Keywords for classification
-        $salaryKeywords = ['salary', 'wage', 'payroll', 'employer', 'employment', 'tra', 'nssf'];
+        $salaryKeywords = ['salary', 'wage', 'payroll'];
         $businessKeywords = ['sales', 'invoice', 'payment received', 'pos', 'till', 'merchant'];
         $transferKeywords = ['transfer', 'mpesa', 'tigopesa', 'airtel money', 'halopesa', 'tpesa'];
         $loanKeywords = ['loan', 'mkopo', 'disbursement', 'advance', 'credit line'];
